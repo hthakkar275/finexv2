@@ -1,0 +1,16 @@
+FROM docker.io/openjdk:11.0.2-jre-slim-stretch
+
+RUN apt-get update && apt-get -y install procps && apt-get -y install vim
+
+ADD target/financial-exchange-products-0.0.1-SNAPSHOT.jar /
+
+ENV FINEX_DISCOVERY_CLIENT_IP http://127.0.0.1
+ENV config_server_uri http://127.0.0.1:8888
+ENV spring_profiles localhost
+ENV FINEX_DISCOVERY_URI http://127.0.0.1:8888
+
+EXPOSE 8080/tcp 8081/tcp
+
+WORKDIR /
+ENTRYPOINT cd / && java -jar ./financial-exchange-products-0.0.1-SNAPSHOT.jar
+

@@ -1,0 +1,41 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Parameters": {
+        "DNSHostedZoneId": {
+            "Description": "Route 53 hosted zone id",
+            "Type": "String"
+        },
+        "FinexURL" : {
+            "Description" : "URL for which a DNS record is to be created",
+            "Type" : "String"
+        }
+    },    
+    "Resources" : {
+        "FinexDnsRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "AliasTarget" : {
+                    "DNSName" : {
+                        "Fn::ImportValue" :  {
+                            "Fn::Sub": "FinexExternalAlbDnsName" 
+                        }
+                    },
+                    "EvaluateTargetHealth" : false,
+                    "HostedZoneId" : {
+                        "Fn::ImportValue" :  {
+                            "Fn::Sub": "FinexExternalAlbHostedZoneId" 
+                        }
+                    }
+                },
+                "HostedZoneId" : { 
+                    "Ref" : "DNSHostedZoneId"
+                },
+                "Comment" : "Alias record to the finex-external-alb",
+                "Name" : { 
+                    "Ref" : "FinexURL"
+                },
+                "Type" : "A"
+            }
+        }
+    }
+}

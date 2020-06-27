@@ -1,0 +1,788 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Resources" : {
+        "FinexVpc" : {
+            "Type" : "AWS::EC2::VPC",
+            "Properties" : {
+                "CidrBlock" : "192.168.0.0/16",
+                "EnableDnsHostnames" : true ,
+                "EnableDnsSupport" : true,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexVpc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexInternetGateway" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexInternetGateway"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexIgwAttachment" : {
+            "Type" : "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn" : [ "FinexVpc", "FinexInternetGateway" ],
+            "Properties" : {
+                "InternetGatewayId" : {
+                    "Ref" : "FinexInternetGateway" 
+                },
+                "VpcId" : {
+                    "Ref" : "FinexVpc" 
+                }
+            }
+        },
+        "FinexPubSubnetZone1" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.1.0/24",
+                "MapPublicIpOnLaunch" : true,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPubSubnetZone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexAppSubnetZone1" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.2.0/24",
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexAppSubnetZone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexDbSubnetZone1" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.3.0/24",
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexDbSubnetZone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexPubSubnetZone2" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "b"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.4.0/24",
+                "MapPublicIpOnLaunch" : true,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPubSubnetZone2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexAppSubnetZone2" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "b"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.5.0/24",
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexAppSubnetZone2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexDbSubnetZone2" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "b"
+                    ] ]
+                },
+                "CidrBlock" : "192.168.6.0/24",
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexDbSubnetZone2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexNatGatewayEIPZone1" : {
+            "Type" : "AWS::EC2::EIP",
+            "DependsOn" : "FinexIgwAttachment",
+            "Properties" : {
+                "Domain" : "vpc",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexNatGatewayEIPZone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexNatGatewayEIPZone2" : {
+            "Type" : "AWS::EC2::EIP",
+            "DependsOn" : "FinexIgwAttachment",
+            "Properties" : {
+                "Domain" : "vpc",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexNatGatewayEIPZone2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexPubRouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPubRouteTable"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexDefaultPubRoute" : {
+            "Type" : "AWS::EC2::Route",
+            "DependsOn" : ["FinexPubRouteTable", "FinexIgwAttachment"],
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPubRouteTable"
+                },
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "GatewayId" : {
+                    "Ref" : "FinexInternetGateway"
+                }
+            }
+        },
+        "FinexPubSubnetZone1RTAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPubRouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexPubSubnetZone1"
+                }
+            }
+        },
+        "FinexPubSubnetZone2RTAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPubRouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexPubSubnetZone2"
+                }
+            }
+        },
+        "FinexPrivateZone1RouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPrivateZone1RouteTable"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexPrivateZone2RouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPrivateZone2RouteTable"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexAppSubnetZone1RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPrivateZone1RouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexAppSubnetZone1"
+                }
+            }
+        },
+        "FinexDbSubnetZone1RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPrivateZone1RouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexDbSubnetZone1"
+                }
+            }
+        },
+        "FinexAppSubnetZone2RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPrivateZone2RouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexAppSubnetZone2"
+                }
+            }
+        },
+        "FinexDbSubnetZone2RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {
+                    "Ref" : "FinexPrivateZone2RouteTable"
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexDbSubnetZone2"
+                }
+            }
+        },        
+        "FinexPubSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Public security group",
+                "GroupName" : "FinexPubSg",
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "SecurityGroupIngress" : [ 
+                    {
+                        "CidrIp" : "0.0.0.0/0",
+                        "FromPort" : 22,
+                        "IpProtocol" : "tcp",
+                        "ToPort" : 22
+                    }, 
+                    {
+                        "CidrIp" : "0.0.0.0/0",
+                        "FromPort" : 80,
+                        "IpProtocol" : "tcp",
+                        "ToPort" : 80
+                    }, 
+                    {
+                        "CidrIp" : "0.0.0.0/0",
+                        "FromPort" : 443,
+                        "IpProtocol" : "tcp",
+                        "ToPort" : 443
+                    }
+                ],
+                "SecurityGroupEgress" : [ 
+                    {
+                        "CidrIp" : "0.0.0.0/0",
+                        "IpProtocol" : "-1"
+                    }
+                ],
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexPubSecurityGroup"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexAppSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Application services security group",
+                "GroupName" : "FinexAppSg",
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexAppSecurityGroup"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexAppSecurityGroupIngressPort22" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexAppSecurityGroup",
+            "Properties" : {
+                "FromPort" : 22,
+                "IpProtocol" : "tcp",
+                "ToPort" : 22,
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                },
+                "SourceSecurityGroupId" : {
+                    "Ref" : "FinexPubSecurityGroup"
+                }
+            }     
+        },
+        "FinexAppSecurityGroupIngressPort8080" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexAppSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 8080,
+                "IpProtocol" : "tcp",
+                "ToPort" : 8080,
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }
+        },
+        "FinexAppSecurityGroupIngressPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexAppSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 80,
+                "IpProtocol" : "tcp",
+                "ToPort" : 80,
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }
+        },
+        "FinexAppSecurityGroupEgress" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "IpProtocol" : "-1",
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }
+        },
+        "FinexDbSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "DependsOn" : [ "FinexPubSecurityGroup", "FinexAppSecurityGroup" ],
+            "Properties" : {
+                "GroupDescription" : "Database security group",
+                "GroupName" : "FinexDbSg",
+                "VpcId" : {
+                    "Ref" : "FinexVpc"
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexDbSecurityGroup"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexDbSecurityGroupIngressPort5432Pub" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexDbSecurityGroup",
+            "Properties" : {
+                "FromPort" : 5432,
+                "IpProtocol" : "tcp",
+                "ToPort" : 5432,
+                "GroupId" : {
+                    "Ref" : "FinexDbSecurityGroup"
+                },
+                "SourceSecurityGroupId" : {
+                    "Ref" : "FinexPubSecurityGroup"
+                }
+            }     
+        },
+        "FinexDbSecurityGroupIngressPort5432App" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexDbSecurityGroup",
+            "Properties" : {
+                "FromPort" : 5432,
+                "IpProtocol" : "tcp",
+                "ToPort" : 5432,
+                "GroupId" : {
+                    "Ref" : "FinexDbSecurityGroup"
+                },
+                "SourceSecurityGroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }     
+        },
+        "FinexDbSecurityGroupEgress" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "IpProtocol" : "-1",
+                "GroupId" : {
+                    "Ref" : "FinexDbSecurityGroup"
+                }
+            }
+        },
+        "FinexNetworkAclIngressEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : false,
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "Protocol" : -1,
+                "RuleAction" : "allow",
+                "RuleNumber" : 100
+              }
+        },
+        "FinexNetworkAclEgressEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "DependsOn" : "FinexVpc",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : false,
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "Protocol" : -1,
+                "RuleAction" : "allow",
+                "RuleNumber" : 100
+            }
+        },
+        "FinexPubSubnetZone1NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexPubSubnetZone1"
+                }
+            }
+        },
+        "FinexAppSubnetZone1NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexAppSubnetZone1"
+                }
+            }
+        },
+        "FinexDbSubnetZone1NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexDbSubnetZone1"
+                }
+            }
+        },
+        "FinexPubSubnetZone2NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexPubSubnetZone2"
+                }
+            }
+        },
+        "FinexAppSubnetZone2NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexAppSubnetZone2"
+                }
+            }
+        },
+        "FinexDbSubnetZone2NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : {
+                    "Fn::GetAtt" : [
+                        "FinexVpc",
+                        "DefaultNetworkAcl"
+                    ]
+                },
+                "SubnetId" : {
+                    "Ref" : "FinexDbSubnetZone2"
+                }
+            }
+        }    
+    },
+    "Outputs" : {
+        "FinexVpcId" : {
+            "Description" : "VPC Id",
+            "Value" : {
+                "Ref" : "FinexVpc"
+            },
+            "Export" : {
+                "Name" : "FinexVpcId"
+            }    
+        },
+        "FinexPubSubnetIdZone1" : {
+            "Description" : "Subnet id of public subnet in AZ1",
+            "Value" : {
+                "Ref" : "FinexPubSubnetZone1"
+            },
+            "Export" : {
+                "Name" : "FinexPubSubnetIdZone1"
+            }    
+        },
+        "FinexPubSubnetIdZone2" : {
+            "Description" : "Subnet id of public subnet in AZ2",
+            "Value" : {
+                "Ref" : "FinexPubSubnetZone2"
+            },
+            "Export" : {
+                "Name" : "FinexPubSubnetIdZone2"
+            }    
+        },
+        "FinexAppSubnetIdZone1" : {
+            "Description" : "Subnet id of application subnet in AZ1",
+            "Value" : {
+                "Ref" : "FinexAppSubnetZone1"
+            },
+            "Export" : {
+                "Name" : "FinexAppSubnetIdZone1"
+            }    
+        },
+        "FinexAppSubnetIdZone2" : {
+            "Description" : "Subnet id of application subnet in AZ2",
+            "Value" : {
+                "Ref" : "FinexAppSubnetZone2"
+            },
+            "Export" : {
+                "Name" : "FinexAppSubnetIdZone2"
+            }    
+        },
+        "FinexEIPZone1AllocationId" : {
+            "Description" : "Allocation id of EIP intended to be used for NAT gateway in AZ1",
+            "Value" : {
+                "Fn::GetAtt" : [
+                    "FinexNatGatewayEIPZone1",
+                    "AllocationId"
+                ]
+            },
+            "Export" : {
+                "Name" : "FinexEIPZone1AllocationId"
+            }    
+        },
+        "FinexEIPZone2AllocationId" : {
+            "Description" : "Allocation id of EIP intended to be used for NAT gateway in AZ2",
+            "Value" : {
+                "Fn::GetAtt" : [
+                    "FinexNatGatewayEIPZone2",
+                    "AllocationId"
+                ]
+            },
+            "Export" : {
+                "Name" : "FinexEIPZone2AllocationId"
+            }    
+        },
+        "FinexPrivateZone1RouteTableId" : {
+            "Description" : "Route table id of private subnet route table in AZ1",
+            "Value" : {
+                "Ref" : "FinexPrivateZone1RouteTable"
+            },
+            "Export" : {
+                "Name" : "FinexPrivateZone1RouteTableId"
+            }    
+        },
+        "FinexPrivateZone2RouteTableId" : {
+            "Description" : "Route table id of private subnet route table in AZ2",
+            "Value" : {
+                "Ref" : "FinexPrivateZone2RouteTable"
+            },
+            "Export" : {
+                "Name" : "FinexPrivateZone2RouteTableId"
+            }    
+        },
+        "FinexPubSgId" : {
+            "Description" : "Security group id of public security group",
+            "Value" : {
+                "Ref" : "FinexPubSecurityGroup"
+            },
+            "Export" : {
+                "Name" : "FinexPubSgId"
+            }    
+        },
+        "FinexAppSgId" : {
+            "Description" : "Security group id of application services security group",
+            "Value" : {
+                "Ref" : "FinexAppSecurityGroup"
+            },
+            "Export" : {
+                "Name" : "FinexAppSgId"
+            }    
+        }, 
+        "FinexDbSgId" : {
+            "Description" : "Security group id of database security group",
+            "Value" : {
+                "Ref" : "FinexDbSecurityGroup"
+            },
+            "Export" : {
+                "Name" : "FinexDbSgId"
+            }    
+        }
+    }
+}
+  

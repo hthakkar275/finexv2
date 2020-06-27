@@ -1,0 +1,14 @@
+FROM docker.io/openjdk:11.0.2-jre-slim-stretch
+
+RUN apt-get update && apt-get -y install procps && apt-get -y install vim
+
+ADD target/financial-exchange-discovery-0.0.1-SNAPSHOT.jar /
+
+ENV config_server_uri http://127.0.0.1:8888
+ENV spring_profiles localhost
+
+EXPOSE 8761/tcp 
+
+WORKDIR /
+ENTRYPOINT cd / && java -jar ./financial-exchange-discovery-0.0.1-SNAPSHOT.jar
+

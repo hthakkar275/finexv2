@@ -1,0 +1,828 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Resources" : {
+        "FinexApiGatewaySvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-trade-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-trades-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8084 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\" --name finex-trades hthakkar/finex-trades-aws:latest\" >> ~ec2-user/run-trade-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-trade-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-trade-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-trade-svc.sh", "\n",
+                                "~ec2-user/run-trade-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+    "FinexInfoSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-info-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-info-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8086 --name finex-info hthakkar/finex-info-aws:latest\" >> ~ec2-user/run-info-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-info-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-info-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-info-svc.sh", "\n",
+                                "~ec2-user/run-info-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }, 
+        "FinexProductSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-product-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-products-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8080 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\" --name finex-products hthakkar/finex-products-aws:latest\" >> ~ec2-user/run-product-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-product-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-product-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-product-svc.sh", "\n",
+                                "~ec2-user/run-product-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }, 
+        "FinexParticipantSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-participant-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-participants-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8081 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\" --name finex-participants hthakkar/finex-participants-aws:latest\" >> ~ec2-user/run-participant-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-participant-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-participant-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-participant-svc.sh", "\n",
+                                "~ec2-user/run-participant-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "FinexOrderSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-order-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-orders-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8082 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\"  --name finex-orders hthakkar/finex-orders-aws:latest\" >> ~ec2-user/run-order-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-order-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-order-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-order-svc.sh", "\n",
+                                "~ec2-user/run-order-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "FinexOrderbookSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-orderbook-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-orderbooks-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8083 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\" --name finex-orderbooks hthakkar/finex-orderbooks-aws:latest\" >> ~ec2-user/run-orderbook-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-orderbook-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-orderbook-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-orderbook-svc.sh", "\n",
+                                "~ec2-user/run-orderbook-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "FinexTradeSvc" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : "us-east-2a",
+                "ImageId" : "ami-0e01ce4ee18447327",
+                "KeyName" : "thakkarh1116-2",
+                "SecurityGroupIds" : [ "sg-0ed749ee95b84582c" ],
+                "SubnetId" : "subnet-04b33d74f1ef1c736",
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-trade-svc"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli", "\n",
+                                "docker pull hthakkar/finex-trades-aws:latest", "\n",
+                                "echo \"docker run -d -p 8080:8084 -e \"config_server_uri=http://127.0.0.1:8888\" -e \"DISCOVERY_SERVICE_URI=http://127.0.0.1:8761/eureka\" --name finex-trades hthakkar/finex-trades-aws:latest\" >> ~ec2-user/run-trade-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-trade-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-trade-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-trade-svc.sh", "\n",
+                                "~ec2-user/run-trade-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "InfoSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexInfoSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/index.html",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-info-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-info-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexInfoSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "ProductSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexProductSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-product-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-product-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexProductSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "ParticipantSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexParticipantSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-participant-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-participant-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexParticipantSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "OrderSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexOrderSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-order-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-order-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexOrderSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "OrderbookSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexOrderbookSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-orderbook-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-orderbook-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexOrderbookSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "TradeSvcTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexTradeSvc",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "finex-trade-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-trade-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { 
+                        "Ref" : "FinexTradeSvc"
+                    },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : "vpc-065e6639362af4a39"
+            }
+        },
+        "InternalAlbListener" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+            "DependsOn" : "InfoSvcTargetGroup",
+            "Properties" : {
+                "LoadBalancerArn" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexInternalAlbArn" 
+                    } 
+                },
+                "DefaultActions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "InfoSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Order" : 100,
+                    "TargetGroupArn" : {
+                        "Ref" : "InfoSvcTargetGroup"
+                    },
+                    "Type" : "forward"
+                }],
+                "Port" : 80,
+                "Protocol" : "HTTP"
+            }
+        },
+        "InternalAlbListnerProductInternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "ProductSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                } ],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/internal/api/product/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 1
+            }
+        },
+        "InternalAlbListnerProductExternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "ProductSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/api/product/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 2
+            }
+        },
+        "InternalAlbListnerParticipantInternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "ParticipantSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/internal/api/participant/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 3
+            }
+        },
+        "InternalAlbListnerParticipantExternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "ParticipantSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/api/participant/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 4
+            }
+        },
+        "InternalAlbListnerOrderInternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "OrderSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/internal/api/order/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 5
+            }
+        },
+        "InternalAlbListnerOrderExternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "OrderSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/api/order/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 6
+            }
+        },
+        "InternalAlbListnerOrderbookInternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "OrderbookSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/internal/api/orderBook/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 7
+            }
+        },
+        "InternalAlbListnerTradeInternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "TradeSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/internal/api/trade/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 8
+            }
+        },
+        "InternalAlbListnerTradeExternalApiRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "InternalAlbListener",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : {
+                                "Ref" : "OrderSvcTargetGroup"
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                }],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex/api/order/*"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : {
+                    "Ref" : "InternalAlbListener"
+                },
+                "Priority" : 9
+            }
+        }
+    }
+}

@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: finex-config
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${git_uri}
+          timeout: 30
+          force-pull: true
+          username: ${git_user}
+          password: ${git_password}
+server:
+  port: 8888
+  
+logging:
+  level:
+    root: INFO

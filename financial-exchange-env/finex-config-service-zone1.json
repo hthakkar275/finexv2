@@ -1,0 +1,177 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "String"
+        },
+        "DockerUsername": {
+            "Description": "Dockerhub username for pulling docker images for the services",
+            "Type": "String"
+        }
+    },    
+    "Mappings": {
+        "RegionToAMIMap": {
+            "us-east-1": {
+                "AMI": "ami-0323c3dd2da7fb37d"
+            },
+            "us-east-2": {
+                "AMI": "ami-0f7919c33c90f5b58"
+            },
+            "us-west-1": {
+                "AMI": "ami-06fcc1f0bc2c8943f"
+            },
+            "us-west-2": {
+                "AMI": "ami-0d6621c01e8c2de2c"
+            }
+        }
+    },
+    "Resources" : {
+        "FinexConfigSvcZone1" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] 
+                ]
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionToAMIMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },          
+                "KeyName" : { 
+                    "Ref" : "KeyName"
+                },
+                "SecurityGroupIds" : [{ 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSgId" 
+                    }
+                } ], 
+                "SubnetId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSubnetIdZone1" 
+                    }
+                },
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-config-svc-zone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "yum install gcc -y", "\n",
+                                "yum install python-pip -y", "\n",
+                                "yum install postgresql-devel python-devel -y", "\n",
+                                "pip install pgcli==2.2.0", "\n",
+                                "docker pull ",
+                                { "Ref" : "DockerUsername" },
+                                "/finex-config-server:latest", "\n",
+                                "echo \"docker run -d -p 8080:8888  --name finex-config ",
+                                { "Ref" : "DockerUsername" },
+                                "/finex-config-server:latest\" >> ~ec2-user/run-config-svc.sh", "\n",
+                                "chown ec2-user ~ec2-user/run-config-svc.sh", "\n",
+                                "chgrp ec2-user ~ec2-user/run-config-svc.sh", "\n",
+                                "chmod 755 ~ec2-user/run-config-svc.sh", "\n",
+                                "~ec2-user/run-config-svc.sh", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },    
+        "FinexConfigSvcTargetGrp" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn" : "FinexConfigSvcZone1",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckPath" : "/actuator/health",
+                "HealthCheckPort" : "8080",
+                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 5,
+                "Matcher" : {
+                    "HttpCode" : "200"
+                },
+                "Name" : "config-svc-grp",
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "config-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { "Ref" : "FinexConfigSvcZone1" },
+                    "Port" : 8080
+                } ],
+                "TargetType" : "instance",
+                "UnhealthyThresholdCount" : 2,
+                "VpcId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexVpcId" 
+                    } 
+                }
+            }
+        }, 
+        "InternalAlbListnerConfigSvcRule" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+            "DependsOn" : "FinexConfigSvcTargetGrp",
+            "Properties" : {
+                "Actions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : { 
+                                "Ref" : "FinexConfigSvcTargetGrp"                            
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                } ],
+                "Conditions" : [ {
+                    "Field" : "path-pattern",
+                    "PathPatternConfig" : {
+                        "Values" : [
+                            "/finex-*/aws/master"
+                        ]
+                    }
+                } ],
+                "ListenerArn" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "InternalAlbListenerArn" 
+                    } 
+                },
+                "Priority" : 1
+            }
+        }    
+    }
+}
+
