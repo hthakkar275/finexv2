@@ -89,14 +89,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-products-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-product.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/product.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-product-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.product.finex.com ",
                                 "--name finex-product ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-products-aws:latest\" >> ~ec2-user/run-product-svc.sh", "\n",
@@ -173,14 +185,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-participants-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-participant.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/participant.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-participant-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.participant.finex.com ",
                                 "--name finex-participant ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-participants-aws:latest\" >> ~ec2-user/run-participant-svc.sh", "\n",
@@ -257,14 +281,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-orders-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-order.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/order.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-order-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.order.finex.com ",
                                 "--name finex-order ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-orders-aws:latest\" >> ~ec2-user/run-order-svc.sh", "\n",
@@ -341,14 +377,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-orderbooks-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-orderbook.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/orderbook.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-orderbook-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.orderbook.finex.com ",
                                 "--name finex-orderbook ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-orderbooks-aws:latest\" >> ~ec2-user/run-orderbook-svc.sh", "\n",
@@ -425,14 +473,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-trades-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-trade.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/trade.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-trade-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.trade.finex.com ",
                                 "--name finex-trade ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-trades-aws:latest\" >> ~ec2-user/run-trade-svc.sh", "\n",
@@ -446,6 +506,112 @@
                     }
                 }
             }
-        }
+        },
+        "FinexProductSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.product.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexProductSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "FinexParticipantSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.participant.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexParticipantSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "FinexOrderSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.order.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexOrderSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "FinexOrderbookSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.orderbook.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexOrderbookSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "FinexTradeSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.trade.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexTradeSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+
     }
 }

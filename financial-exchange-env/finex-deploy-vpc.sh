@@ -51,5 +51,8 @@ function create_aws_stack() {
 
 # Create VPC in AWS region specified by the input argument number 2. The stack name will be suffixed
 # with the same AWS region name specified in argument number 2
-STACK_NAME="finex-vpc-$FINEX_AWS_REGION $FINEX_AWS_REGION"
+STACK_NAME="finex-vpc-$FINEX_AWS_REGION"
 create_aws_stack finex-vpc.json $STACK_NAME
+
+STACK_NAME="finex-pvt-hosted-zone-$FINEX_AWS_REGION"
+create_aws_stack finex-private-hosted-zone.json $STACK_NAME

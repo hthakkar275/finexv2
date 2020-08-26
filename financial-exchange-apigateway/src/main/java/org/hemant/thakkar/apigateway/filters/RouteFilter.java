@@ -1,6 +1,9 @@
 package org.hemant.thakkar.apigateway.filters;
 
+import javax.servlet.http.HttpServletRequest;
+
 import com.netflix.zuul.ZuulFilter;
+import com.netflix.zuul.context.RequestContext;
 
 public class RouteFilter extends ZuulFilter {
 
@@ -21,7 +24,13 @@ public class RouteFilter extends ZuulFilter {
 
 	@Override
 	public Object run() {
-		System.out.println("Inside Route Filter");
+		RequestContext ctx = RequestContext.getCurrentContext();
+		HttpServletRequest request = ctx.getRequest();
+
+		StringBuilder msg = new StringBuilder("Route Filter: ");
+		msg.append("Method [").append(request.getMethod()).append("] ");
+		msg.append("URL [").append(request.getRequestURL().toString()).append("] ");
+		System.out.println(msg.toString());
 		return null;
 	}
 }

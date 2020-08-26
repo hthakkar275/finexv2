@@ -9,15 +9,22 @@
 # created by finex-internal-alb and finex-external-alb are used by their 
 # respective listnner stacks.
 
-for STACK in "finex-dns" "finex-external-alb-listener" "finex-internal-alb-listener" \
- "finex-config-service" "finex-nat-gateway"; do
+for STACK in "finex-dns-us-east-2" \
+"finex-application-services-us-east-2-zone1" \
+"finex-apigateway-service-us-east-2-zone1" \
+"finex-discovery-service-us-east-2-zone1" \
+"finex-config-service-us-east-2-zone1"; do
     aws cloudformation delete-stack --stack-name $STACK   
 done
 
 # Wait 30 seconds for the dependent stacks to be well underway in the deletion
 # before proceeding to issue delete stack commands on their dependencies
-sleep 30
+sleep 600
 
-for STACK in "finex-external-alb" "finex-internal-alb" "finex-application-services"; do
-    aws cloudformation delete-stack --stack-name $STACK   
+echo "Deleting load balancer stacks"
+
+for ESTACK in "finex-nat-gateway-us-east-2" \
+"finex-external-alb-us-east-2" \
+"finex-internal-alb-us-east-2"; do
+    aws cloudformation delete-stack --stack-name $ESTACK
 done

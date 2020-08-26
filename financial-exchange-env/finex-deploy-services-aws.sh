@@ -85,7 +85,7 @@ echo "External ALB DNS Name is [$EXTERNAL_ALB_DNS_NAME]"
 
 # Deploy the config service EC2 and add it to the internal ALB
 STACK_NAME="finex-config-service-$FINEX_AWS_REGION-zone1"
-create_aws_stack finex-config-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME"
+create_aws_stack finex-config-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME ParameterKey=ConfigGitUri,ParameterValue=$FINEX_GIT_REPO ParameterKey=ConfigGitUsername,ParameterValue=$FINEX_GIT_USER ParameterKey=ConfigGitPassword,ParameterValue=$FINEX_GIT_PASSWORD"
 
 # Wait 1 minutes to let the configuration service become available via the load balancer
 
