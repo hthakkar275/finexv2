@@ -8,6 +8,10 @@
         "DockerUsername": {
             "Description": "Dockerhub username for pulling docker images for the services",
             "Type": "String"
+        },
+        "CertificateArn": {
+            "Description": "ARN of the certificate in ACM for the load balancer",
+            "Type": "String"
         }
     },    
     "Mappings": {
@@ -247,12 +251,11 @@
             "Type" : "AWS::ElasticLoadBalancingV2::Listener",
             "DependsOn" : "ExtApiGatewaySvcTargetGrp",
             "Properties" : {
-                "Certificates" : [
-                    {
-                        "CertificateArn" : "arn:aws:acm:us-east-2:590772752081:certificate/45af281f-ca68-4912-b4bc-7af10dbb3457"
-                    }
-                ],
-                "LoadBalancerArn" : { 
+                "Certificates" : [ {
+                    "CertificateArn" : { "Ref" : "CertificateArn" }
+                }
+            ],
+            "LoadBalancerArn" : { 
                     "Fn::ImportValue" :  {
                         "Fn::Sub": "FinexExternalAlbArn" 
                     } 

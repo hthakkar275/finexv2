@@ -1,5 +1,11 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
+    "Parameters": {
+        "CertificateArn": {
+            "Description": "ARN of the certificate in ACM for the internal load balancer",
+            "Type": "String"
+        }
+    },    
     "Resources" : {
         "InternalAlb" : {
             "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
@@ -37,9 +43,8 @@
             "Type" : "AWS::ElasticLoadBalancingV2::Listener",
             "DependsOn" : "InternalAlb",
             "Properties" : {
-                "Certificates" : [
-                    {
-                        "CertificateArn" : "arn:aws:acm:us-east-2:590772752081:certificate/beb8094e-4217-4764-9a88-d3fb4410aa4d"
+                "Certificates" : [ {
+                        "CertificateArn" : { "Ref" : "CertificateArn" }
                     }
                 ],
                 "LoadBalancerArn" : { "Ref" : "InternalAlb" },

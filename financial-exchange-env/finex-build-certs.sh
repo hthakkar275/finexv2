@@ -19,6 +19,13 @@ function showUsage() {
     echo "  "  >&2
     echo "    -P Password for internal CA private key. This is used for sigining the deciated service CSR with internal CA  " >&2
     echo "   " >&2
+    echo "    -r AWS region. " >&2 
+    echo "          Applicable only for ilb target which is for the internal load balancer deployed in AWS" >&2
+    echo "          Specify the region on which the internal load balancer will use the cerfiticate" >&2
+    echo "   " >&2
+    echo "   -f public-url associated whose Route 53 DNS record maps to the internet-facing load balancer, Optional" >&2
+    echo "          Example: finex.mydomain.com  If present, the elb certificate will use this value for the DNS in Subject Alternative Naems " >&2
+    echo "   " >&2
     echo "    -s Optional AWS S3 bucket URI (example: s3://finex-security) where to place the keystore. (Optional) " >&2
     echo "          If not provided, the TLS artifacts are placed in current directory " >&2
     echo "          If provided, it is assumed that " >&2 
@@ -91,13 +98,43 @@ function createService() {
 }
 
 # ---------------------------------------------------------------------------
+# 1. Create a private key and CSR 
+# 2. Sign the load balancer CSR with internal-ca certificate
+# 3. Create text files for the load balancer and internal-ca certificate PEM 
+#    to use for importing into the AWS Certificate Manager
+# ---------------------------------------------------------------------------
+function createLoadBalancer() {
+
+    echo "Will use LB DNS: $LB_DNS_NAME"
+
+    # Private key and CSR
+    openssl req -newkey rsa:2048 -keyout finex-$FINEX_TLS_TARGET-key.pem -out finex-$FINEX_TLS_TARGET.csr -passout pass:$FINEX_TLS_PASSWORD \
+    -subj "/C=US/ST=Illinois/L=Chiago/O=NaperIlTech/OU=Finex/CN=$LB_DNS_NAME"
+
+    # Extensions configuration file to add DNS names for which 
+    # this certificate is applicable
+    touch finex-$FINEX_TLS_TARGET-extensions.cnf
+    echo "subjectAltName=DNS:$LB_DNS_NAME" >> finex-$FINEX_TLS_TARGET-extensions.cnf
+
+    # Sign the service certificate request (csr) using the Internal CA certificate
+    openssl x509 -req -in finex-$FINEX_TLS_TARGET.csr -passin pass:$FINEX_INTERNAL_CA_PASSWORD -days 365 -CA $FINEX_INTERNAL_CA.crt -CAkey $FINEX_INTERNAL_CA-key.pem \
+    -CAserial $FINEX_INTERNAL_CA-serial.ser -out finex-$FINEX_TLS_TARGET.crt -extfile finex-$FINEX_TLS_TARGET-extensions.cnf
+
+    # Create a PEM text file for the load balancer certificate
+    openssl rsa -in finex-$FINEX_TLS_TARGET-key.pem -passin pass:$FINEX_TLS_PASSWORD > finex-$FINEX_TLS_TARGET-acm-certificate-private-key.pem
+
+    echo "Completed TLS artificats for $FINEX_TLS_TARGET."
+}
+
+# ---------------------------------------------------------------------------
 # Copy to S3 bucket
 # ---------------------------------------------------------------------------
 function copyToS3() {
     if [[ "$FINEX_TLS_TARGET" == "internal-ca" ]]; then 
         if [[ -f "internal-ca.crt" ]]; then
             aws s3 cp ./$FINEX_TLS_TARGET.crt $FINEX_S3_BUCKET
-            echo "Copied k$FINEX_TLS_TARGET.crt to $FINEX_S3_BUCKET on AWS account $AWS_ACCOUNT"
+            aws s3 cp ./$FINEX_TLS_TARGET.crt $FINEX_S3_BUCKET/finex-certificate-chain.pem
+            echo "Copied relevant artifacts to $FINEX_S3_BUCKET on AWS account $AWS_ACCOUNT"
         fi
     else 
         if [[ -f "finex-$FINEX_TLS_TARGET.p12" ]]; then 
@@ -105,12 +142,18 @@ function copyToS3() {
             aws s3 cp ./$FINEX_TLS_TARGET.txt $FINEX_S3_BUCKET
             rm finex-$FINEX_TLS_TARGET*
             rm $FINEX_TLS_TARGET.txt
-            echo "Copied keystore file finex-$FINEX_TLS_TARGET.p12 and password file $FINEX_TLS_TARGET.txt to $FINEX_S3_BUCKET on AWS account $AWS_ACCOUNT"
+            echo "Copied relevant artifacts to $FINEX_S3_BUCKET on AWS account $AWS_ACCOUNT"
+        fi
+        if [[ -f "finex-$FINEX_TLS_TARGET-acm-certificate-private-key.pem" ]]; then 
+            aws s3 cp ./finex-$FINEX_TLS_TARGET.crt $FINEX_S3_BUCKET/finex-$FINEX_TLS_TARGET-acm-certificate-body.pem
+            aws s3 cp finex-$FINEX_TLS_TARGET-acm-certificate-private-key.pem $FINEX_S3_BUCKET 
+            rm finex-$FINEX_TLS_TARGET*
+            echo "Copied relevant artifacts to $FINEX_S3_BUCKET on AWS account $AWS_ACCOUNT"
         fi
     fi
 }
 
-while getopts ":t:p:i:P:s:h" opt; do
+while getopts ":t:p:i:P:s:r:f:h" opt; do
   case ${opt} in
     t )
       FINEX_TLS_TARGET=$OPTARG
@@ -126,6 +169,12 @@ while getopts ":t:p:i:P:s:h" opt; do
       ;;
     P )
       FINEX_INTERNAL_CA_PASSWORD=$OPTARG
+      ;;
+    r )
+      FINEX_AWS_REGION=$OPTARG
+      ;;
+    f )
+      FINEX_URL=$OPTARG
       ;;
     h )
       showUsage
@@ -179,6 +228,28 @@ if [[ -n "$FINEX_S3_BUCKET" ]]; then
     fi
 fi
 
+if [[ "$FINEX_TLS_TARGET" == "ilb" ]]; then
+    if [[ -z "$FINEX_AWS_REGION" ]]; then
+        echo "AWS region must be specified when creating certificate for AWS internal load balancer"
+        VALID_ARGUMENTS="false"
+    else
+        LB_DNS_NAME="*.$FINEX_AWS_REGION.elb.amazonaws.com"
+    fi
+fi
+
+if [[ "$FINEX_TLS_TARGET" == "elb" ]]; then
+    if [[ -n "$FINEX_URL" ]]; then
+        LB_DNS_NAME=$FINEX_URL
+    else
+        if [[ -z "$FINEX_AWS_REGION" ]]; then
+            echo "AWS region must be specified when public url is unsepcified and creating certificate for AWS internet-facing load balancer"
+            VALID_ARGUMENTS="false"
+        else
+            LB_DNS_NAME="*.elb.$FINEX_AWS_REGION.amazonaws.com"
+        fi
+    fi
+fi
+
 if [[ "$VALID_ARGUMENTS" == "false" ]]; then
     showUsage
     exit 1
@@ -188,8 +259,11 @@ case "$FINEX_TLS_TARGET" in
     internal-ca)
         createInternalCA
         ;;
-    ilb|elb|apigateway|discovery|config|product|participant|order|orderbook|trade)
+    apigateway|discovery|config|product|participant|order|orderbook|trade)
         createService
+        ;;
+    ilb|elb)
+        createLoadBalancer
         ;;
 esac
  
