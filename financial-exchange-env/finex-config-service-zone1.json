@@ -8,7 +8,20 @@
         "DockerUsername": {
             "Description": "Dockerhub username for pulling docker images for the services",
             "Type": "String"
+        },
+        "ConfigGitUri": {
+            "Description": "git uri for configuration files",
+            "Type": "String"
+        },
+        "ConfigGitUsername": {
+            "Description": "Username for the uri declared in ConfigGitUri",
+            "Type": "String"
+        },
+        "ConfigGitPassword": {
+            "Description": "Password for the uri declared in ConfigGitUri",
+            "Type": "String"
         }
+
     },    
     "Mappings": {
         "RegionToAMIMap": {
@@ -89,7 +102,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-config-server:latest", "\n",
-                                "echo \"docker run -d -p 8080:8888  --name finex-config ",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-config.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/config.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
+                                "-e git_uri=", 
+                                { "Ref" : "ConfigGitUri" }, 
+                                " -e git_user=", 
+                                { "Ref" : "ConfigGitUsername" }, 
+                                " -e git_password=", 
+                                { "Ref" : "ConfigGitPassword" }, 
+                                " --name finex-config ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-config-server:latest\" >> ~ec2-user/run-config-svc.sh", "\n",
                                 "chown ec2-user ~ec2-user/run-config-svc.sh", "\n",
@@ -103,6 +135,27 @@
                 }
             }
         },    
+        "FinexConfigSvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.config.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexConfigSvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
         "FinexConfigSvcTargetGrp" : {
             "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
             "DependsOn" : "FinexConfigSvcZone1",
@@ -110,16 +163,16 @@
                 "HealthCheckEnabled" : true,
                 "HealthCheckIntervalSeconds" : 30,
                 "HealthCheckPath" : "/actuator/health",
-                "HealthCheckPort" : "8080",
-                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckPort" : "443",
+                "HealthCheckProtocol" : "HTTPS",
                 "HealthCheckTimeoutSeconds" : 5,
                 "HealthyThresholdCount" : 5,
                 "Matcher" : {
                     "HttpCode" : "200"
                 },
                 "Name" : "config-svc-grp",
-                "Port" : 8080,
-                "Protocol" : "HTTP",
+                "Port" : 443,
+                "Protocol" : "HTTPS",
                 "Tags" : [
                     {
                         "Key" : "Name",
@@ -131,7 +184,7 @@
                 ],
                 "Targets" : [ {
                     "Id" : { "Ref" : "FinexConfigSvcZone1" },
-                    "Port" : 8080
+                    "Port" : 443
                 } ],
                 "TargetType" : "instance",
                 "UnhealthyThresholdCount" : 2,

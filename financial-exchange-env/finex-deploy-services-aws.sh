@@ -62,6 +62,22 @@ function get_aws_stack_output() {
     echo "$OUTPUT_VALUE"
 }
 
+function get_acm_certificate_arn() {
+    for LB_CERTIFICATE_ARN in `aws acm list-certificates --output text |  awk '{print $2}'`; do 
+        FOUND_TAG=`aws acm list-tags-for-certificate --certificate-arn $LB_CERTIFICATE_ARN --output text | grep $1`
+        if [[ -n "$FOUND_TAG" ]]; then
+            break
+        fi
+    done
+
+    if [[ -n "$FOUND_TAG" ]]; then
+        echo "Certificate ARN for $CERTIFICATE_NAME_TAG is: $LB_CERTIFICATE_ARN"
+    else
+        echo "Certificate for $CERTIFICATE_NAME_TAG not found in ACM ... Exiting"
+        exit 1
+    fi
+}
+
 # Deploy the finex-nat-gateway so that all services in the private subnet
 # have internet access to install docker and other packages
 
@@ -70,14 +86,14 @@ create_aws_stack finex-nat-gateway.json $STACK_NAME
 
 # Deploy internal application load balancer. The DNS name of the interanl ALB
 # will be supplied into the docker images for all application services
-
 STACK_NAME="finex-internal-alb-$FINEX_AWS_REGION"
-create_aws_stack finex-internal-alb.json $STACK_NAME 
+CERTIFICATE_NAME_TAG="finex-ilb"
+get_acm_certificate_arn $CERTIFICATE_NAME_TAG
+create_aws_stack finex-internal-alb.json $STACK_NAME "ParameterKey=CertificateArn,ParameterValue=$LB_CERTIFICATE_ARN"
 INTERNAL_ALB_DNS_NAME=`get_aws_stack_output $STACK_NAME InternalAlbDnsName`
 echo "Internal ALB DNS Name is [$INTERNAL_ALB_DNS_NAME]"
 
 # Deploy external application load balancer. 
-
 STACK_NAME="finex-external-alb-$FINEX_AWS_REGION"
 create_aws_stack finex-external-alb.json $STACK_NAME
 EXTERNAL_ALB_DNS_NAME=`get_aws_stack_output $STACK_NAME ExternalAlbDnsName`
@@ -85,15 +101,13 @@ echo "External ALB DNS Name is [$EXTERNAL_ALB_DNS_NAME]"
 
 # Deploy the config service EC2 and add it to the internal ALB
 STACK_NAME="finex-config-service-$FINEX_AWS_REGION-zone1"
-create_aws_stack finex-config-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME"
+create_aws_stack finex-config-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME ParameterKey=ConfigGitUri,ParameterValue=$FINEX_GIT_REPO ParameterKey=ConfigGitUsername,ParameterValue=$FINEX_GIT_USER ParameterKey=ConfigGitPassword,ParameterValue=$FINEX_GIT_PASSWORD"
 
 # Wait 1 minutes to let the configuration service become available via the load balancer
-
 echo "Waiting 1 minute .... for configuration service to become visible via load balancer"
 sleep 60
 
 # Deploy the discovery service EC2 and add it to the internal ALB
-
 STACK_NAME="finex-discovery-service-$FINEX_AWS_REGION-zone1"
 create_aws_stack finex-discovery-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME"
 
@@ -101,12 +115,12 @@ echo "Waiting 1 minute .... for discovery service to become visible via load bal
 sleep 60
 
 # Deploy the API gateway EC2 and add it to the internal ALB
-
 STACK_NAME="finex-apigateway-service-$FINEX_AWS_REGION-zone1"
-create_aws_stack finex-apigateway-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME"
+CERTIFICATE_NAME_TAG="finex-elb"
+get_acm_certificate_arn $CERTIFICATE_NAME_TAG
+create_aws_stack finex-apigateway-service-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME ParameterKey=CertificateArn,ParameterValue=$LB_CERTIFICATE_ARN"
 
 # Deploy all application services
-
 STACK_NAME="finex-application-services-$FINEX_AWS_REGION-zone1"
 create_aws_stack finex-application-services-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=DockerUsername,ParameterValue=$FINEX_DOCKER_USERNAME"
 

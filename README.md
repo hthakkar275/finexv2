@@ -25,6 +25,9 @@ A financial exchange system used to experiment with software architecture styles
    *  PostgreSQL for persistence
    *  AWS cloudformation to deploy entire infrastructure
 
+[Version 2.1](https://github.com/hthakkar275/finexv2)
+   *  Secure communication between services using TLS encryption
+
 The stock exchange application itself provides APIs to place orders which are then matched using an orderbook implementation using simple price-time order matching. Additionally it has APIs to retrieve products available for trade, to view matched trades, and to retrieve orders. 
 
 The distributed services of the system are individual Spring Boot applications. Together the services form an API-based system with API in the form of web services. The API is categorized into internal and external API. The internal API follow the path convention is `/finex/internal/api/domain`, and external API follows the path convention `/finex/api/domain`. The objective of the internal vs external API is to make external API potentially available on the public Internet whereas the internal API is available only within the organization. The external API consists of capabilities such as placing and order whereas internal API consists of capabilities such as product maintenance.
@@ -38,6 +41,8 @@ The application services retrieve their application parameters from the configur
 The application services communicate with each other via the API gateway service. The application services and API gateway service register with the discovery service to allow API gateway to discover the available application services for API routing and load balancing.
 
 All service types are dockerized. Each docker image can be run in a docker container where the docker containers can be launched on a single bare-metal hardware, single VM, or multiple VMs. The objective of this implementation is to deploy each service in a dedicated AWS t3.micro EC2 instance. The `/financial-exchange-env` contains the necessary AWS Cloudformation configuration files and bash scripts that automate the maven and docker builds of the services as well as deployment of necessary infrastructure in AWS.
+
+All service-to-service and service-to-load-balancers communication is secured via TLS. Refer to the [Application Security](#application-security) for implementation details.  
 
 The diagram below gives a complete picture of all that is involved in this repo.
 
@@ -315,7 +320,7 @@ Once the `finex-build-aws.sh` completes successfully the following AWS elements 
 
 #### Manual PostgreSQL Deployment
 
-Create a new PostgreSQL instance in AWS RDS console. Use the following values. Use default values for parameters not listed below.
+Create a new PostgreSQL instance in AWS RDS console. Use the following values. Use default values for parameters not listed below. This procedure needs to be executed only if the database is not already created.
 
 1. Navigate to the RDS on AWS console. 
 2. Proceed to create a new database instance with parameters shown below. The parameters below are just a suggestion to keep the RDS usage within the AWS free tier. The names of VPC and Security Group are those that were created in the Automated VPC Build step.
@@ -379,13 +384,71 @@ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazon
 ```
 5. Load the `finexschema.sql` file into pgcli which will automatically run all DDL commands.
 
+#### Create TLS Artifacts
+
+Refer to the [Application Security](#application-security) section for TLS security architecture.
+
+All private keys, certificates and keystores are created manually by a security administrator external to the automated deployment process, though a shell script [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) is available to expeditiously create all necessary TLS artifacts as well as copy the relevant artifacts to an S3 bucket used during service deplooyment on AWS. The procedure below uses that [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh). Anyone wishing to forgo the use of [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) and create the TLS artifacts manually, please refer to the shell script code as it is quite straightforward and well-documented to allow one to extract the necessary steps that must be performed manually. Another option one may consider it to use the [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) as the base, and make necessary adjustments to create a customized script.
+
+Each step is described as to the purpose and, where applicable, supplemented with the command to execute on [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh). Password values are defaulted to `changeit` in the example commands. Please substitute appropriate desired password value in place of the default password `changeit`.
+
+1. Create a secure S3 bucket at `s3://finex-security`. 
+2. Create a self-signed TLS certificate that serves as an internal certificate authority, and copy the internal CA certificate (`.crt`) file to `s3://finex-security`
+   
+   ```bash
+   finex-build-certs.sh -t internal-ca -p changeit -s s3://finex-security
+   ```
+
+3. For each dedicated service TLS artifact not intended for the AWS load balancers
+   1. Create a private key and a Certificate Signature Request (CSR) for each of the dedicated service.
+   2. Sign each dedicated service CSR using Internal-CA certificate.
+   3. Create a PKCS12 keystore for each dedicated service, and import the dedicated private key, Internal-CA-Signed dedicated certificate, and the Internal-CA certificate itself.
+   4. Create a simple text file for each service, and add one line with the keystore password used to create the PKCS12 keystore. 
+   5. Copy the PKCS12 keystore files and the password files for all service to `s3://finex-security`. Note that the password should ideally be kept in password vault system such as CyberArk, but for this application a secure S3 bucket should suffice.
+
+      ```bash
+      # All steps between sub-steps in step 3 are automated with a single execution of the finex-build-certs.sh script for each of the dedicated service artifact. The -i is the alias of the Internal CA certificate and -P is the password for the Internal CA certificate, and this is repeated for each dedicated TLS artifact for sigining the CSR
+
+      finex-build-certs.sh -t product -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t participant -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t order -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t orderbook -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t trade -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t apigateway -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t discovery -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t config -p changeit -i internal-ca -P changeit -s s3://finex-security
+      ```
+4.  Create certificate and private key for load balancers to import into the AWS Certificate Manager (ACM). An ACM ARN for each imported certificate is provided in the load balancer Cloudformation scripts, with which AWS retrieves these artifacts from ACM when instantiating the load balancers. Refer to https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html for details on process of importing certificate into ACM. The ACM import requires three inputs
+       *  `Certificate body`: Public key certificate (`.crt`) of the TLS certificate key-pair in PEM format
+       *  `Certificate private key` Un-encrypted private key of the TLS certificate key-pair in PEM format
+       *  `Certificate chain`: Internal CA certificate (`.crt`) in PEM format
+
+    The [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) creates `Certificate body` and `Certificate private key` needed for by running the following commands. These will be ouptut in files with pattern `*-acm-certificate-body.pem` and `*-acm-certificate-private-key.pem`.  
+
+      ```bash
+      finex-build-certs.sh -t ilb -p ilb -i internal-ca -P internalca -r us-east-2 -s s3://finex-security
+      finex-build-certs.sh -t elb -p elb -i internal-ca -P internalca -f finex.naperiltech.com -s s3://finex-security
+      ```
+
+      Note that the internal load balancer command is provided a required `-r` option to specify AWS region. The shell script uses this value to determine the DNS to attach in the Subject Alternative Names extensions when creating the certificate for the internal load balancer. This is dould be the DNS suffix that AWS assigns to internal load balancer. For example, if `-r` is set to us-east-2, the DNS is `*.us-east-2.elb.amazonaws.com`
+
+      Similarly the external load balancer (i.e. internet-facing) is provided an optional `-f` option to speicfy the publicly registered domain name. The shell script uses this value to determine the DNS to attach in the Subject Alternative Names extensions when creating the certificate for the internet-facing load balancer. If, however, intention is to not map the internet-facing load balancer to a publicly registered domain name, then the `-r` option is required to provide the AWS region. Like the case with internal load balancer, the shell script will determine the DNS name. In the case of internet-facing network load balancer, however, the pattern for the DNS name has a subtle difference as compared to that of internal applicaiton load balancer. For example, if `-r` is set to us-east-2, the DNS is `*.elb.us-east-2.amazonaws.com`
+
+5.  Import the certificate and private key PEM for the internal ALB and the internet-facing ELB into the ACM. 
+    * Refer to https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html for procedure 
+    * Use the above described `Ceritifcate body` and `Certificate private key` ACM inputs for each of the load balancer certificate. 
+    * Use the `internal-ca.crt` from above for the `Certificate chain` ACM input.
+    * **IMPORTANT**: Tag each certificate as follows. The load balancer CloudFormation scripts will use these tag names to look up the certificate ARN.
+      * Internal Load Balancer:  `finex-ilb`
+      * Internet-facing Load Balancer: `finex-elb`
+
 #### Maven Build and Docker Build Services
 
 1. Change to directory `financial-exchange-env` in your local git repository where you cloned https://github.com/hthakkar275/finexv2.
 2.  Run the `finex-build-aws.sh` as shown below to perform maven build, docker images build, and push the docker images to dockerhub. It will perform these actions on all Infrastructure Services & Application Services. 
 
 ```console
-finex-build-aws.sh -b build-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -s <absolute path to parent directory of your local git repository> 
+finex-build-aws.sh -b build-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -s <absolute path to parent directory of your local git repository> -i <Docker Hub username>
 ```
 3. The shell script will take upwards of 30 to 45 minutes to perform all maven builds, docker builds, docker push and create AWS infrastructure. You can monitor the output from the `finex-build-aws.sh` to track the progress. The progress can also be tracked in the AWS Cloudformation console.
 
@@ -395,13 +458,56 @@ finex-build-aws.sh -b build-services -r <aws region name> -c <absolute path to f
 2.  Run the `finex-build-aws.sh` as shown below to build & deploy Infrastructure Services & Application Services in your desired AWS region. Note that the `-d` and `-f` are optional. These two optional argument allow you to create a DNS record in AWS Route 53 for your publicly registered domain to the external API available via the internet-facing load balancer. If you don't have a publicly registered domain name or do not wish to create a public DNS record, you may omit the `-d` and `-f` options.
 
 ```console
-finex-build-aws.sh -b deploy-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -s <absolute path to parent directory of your local git repository> -g <URI of the configuration git repository> -u <git username of configuration git repository> -p <git password of configuraiton git repository> -k <AWS key-pair name> -i <Docker Hub username> -d <route 53 hosted zone id> -f <publicly registerd url>
+finex-build-aws.sh -b deploy-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -g <URI of the configuration git repository> -u <git username of configuration git repository> -p <git password of configuraiton git repository> -k <AWS key-pair name> -i <Docker Hub username> -d <route 53 hosted zone id> -f <publicly registerd url>
 ```
 3. When the shell script is complete, the finex system is fully deployed with the necessary AWS infrastructure and services running and ready for API executions. Specifically this script will
    1. Deploy all services in their dedicated EC2 instances
    2. Create an internal Application Load Balancer with the Configuration Service, Discover Service and API Gateway Service as the targets.
    3. Create an internet-facing Elastic Load Balancer with API Gateway Services as the targets.
    4. If public DNS record and URL are supplied a DNS record is created to the internet-facing ELB to complete the path from the public Internet to the APIs offered by the application services.
+
+# Application Security 
+
+There are two parts to application security
+* Data Encryption 
+* User Authentication & Authorization
+
+Version 2.1 adds the Data Encryption aspect of application security
+
+## Data Encryption
+
+All service-to-service and service-to-load-balancer traffic is secured using non-mutual TLS. The figure below shows the communication pathways that are secure HTTPS.
+
+![TLS Security](financial-exchange-docs/TLSSecurityFigure.png) 
+
+Each Spring Boot service is configured with a SSL/TLS certificate PKCS12 (.p12) keystore. The keystore has a TLS certificate dedicated to the service. The Internet-Facing ELB and Internal ALB are also configured with a dedicated TLS certificate. All dedicated certificates are signed by a common self-signed TLS certificate that is treated like an internal certificate authority. 
+
+The internal CA TLS certificate is then imported into the Java `cacerts` as a trusted certificate at the time of docker startup for each Spring Boot service, thus establishing all dedicated certificates as trusted certificates. This approach mimics the dedicated certificates as being a real CA-signed certificates. The TLS certificates for the AWS load balancers are imported into the AWS Certificate Manager (ACM). The dedicated certificates imported into ACM are also imported with the internal CA TLS certificate as a certificate chain thereby allowing the load balancers to trust the server certificate provided to them when the load balancer acts in client role.
+
+While the AWS load balancers access the certificate from the ACM, the Spring Boot services access them from the TLS keystore configured in the service configuration file. The keystore file itself is copied from a pre-designated S3 bucket into a directory on the EC2 instance where the service runs as a docker container. The internal CA TLS certificate is also copied from the same S3 bucket into the same directory on EC2. The directory is then mapped to a docker container volume from which the Spring Boot application accesses the keystore and the internal CA TLS certificate. The internal CA TLS certificate is imported into the Java `cacerts` as a trusted certificate at the time of docker startup for each service.
+
+All private keys, certificates and keystores are created manually by a security administrator external to the automated deployment process, though a shell script [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) is available to expeditiously create all necessary TLS artifacts as well as copy the relevant artifacts to an S3 bucket. The figure below captures the static picture and the certificate creation and propagation workflow. Most of the workflow is automated with use of [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) and the EC2 cloudformation, although a system administrator may opt to forgo the use of [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) and create the TLS artifacts manually. 
+
+![TLS Security Certificate Process](financial-exchange-docs/TLSSecurityFigure2.png) 
+
+In the event that system administrator wishes to create the TLS artifacts manually, the procedure below describes the required actions which are codified in the [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh).
+
+1. Create a self-signed TLS certificate that serves as an internal certificate authority.
+2. Create a private key and a Certificate Signature Request (CSR) for each of the dedicated service as well as the internal ALB and internet-facing ELB.
+3. Sign each dedicated service CSR using Internal-CA certificate.
+4. Create a PKCS12 keystore for each dedicated service, and import the dedicated private key, Internal-CA-Signed dedicated certificate, and the Internal-CA certificate itself.
+5. Create a simple text file for each service, and add one line with the keystore password used to create the PKCS12 keystore. 
+6. Create a secure S3 bucket at `s3://finex-security`.
+7. Copy the PKCS12 keystore files and the password files for all service to `s3://finex-security`. Note that the password should ideally be kept in password vault system such as CyberArk, but for this application a secure S3 bucket should suffice.
+8. Copy the internal CA certificate file to `s3://finex-security`
+
+The automated AWS deployment automatically perform the following steps to use the content of `s3://finex-security`
+
+1. The EC2 CloudFormation script contains startup code that will 
+   1. copy from `s3://finex-security` into a root-protected folder at `/finex-security` on the EC2 instance the appropriate keystore file and password file for the service as well as the Internal-CA certificate. 
+   2. Run the docker image and map `/finex-security` on EC2 to a `/finex-security` inside the docker container.
+2. Docker `ENTRYPOINT` will import the Internal-CA certificate form its mapped `/finex-security` into the `cacerts` of the JDK in the docker image
+3. Each Spring Boot Application has SSL keystore configuration pointing to the `/finex-security` to use the TLS certificate of the service.
 
 # Future Directions
 

@@ -1,0 +1,41 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Resources" : {
+        "FinexPrivateHostedZone" : {
+            "Type" : "AWS::Route53::HostedZone",
+            "Properties": {
+                "HostedZoneConfig": {
+                   "Comment": "Private hosted zone for internal DNS for finex services"
+                },
+                "Name": "finex.com",
+                "VPCs": [ 
+                    {
+                        "VPCId": { 
+                            "Fn::ImportValue" :  {
+                                "Fn::Sub": "FinexVpcId" 
+                            }
+                        },
+                        "VPCRegion": { "Ref" : "AWS::Region" }
+                    }
+                ],
+                "HostedZoneTags": [
+                   {
+                      "Key": "ZoneName",
+                      "Value": "FinexInternalHostedZone"
+                   }
+                ]
+             }       
+        }
+    },
+    "Outputs" : {
+        "FinexPrivateHostedZoneId" : {
+            "Description" : "Finex private hosted zone id for finex.com",
+            "Value" : {
+                "Ref" : "FinexPrivateHostedZone"
+            },
+            "Export" : {
+                "Name" : "FinexPrivateHostedZoneId"
+            }    
+        }
+    }
+}

@@ -8,6 +8,10 @@
         "DockerUsername": {
             "Description": "Dockerhub username for pulling docker images for the services",
             "Type": "String"
+        },
+        "CertificateArn": {
+            "Description": "ARN of the certificate in ACM for the load balancer",
+            "Type": "String"
         }
     },    
     "Mappings": {
@@ -89,14 +93,26 @@
                                 "docker pull ",
                                 { "Ref" : "DockerUsername" },
                                 "/finex-apigateway-aws:latest", "\n",
+                                "mkdir ~ec2-user/finex-security", "\n",
+                                "aws s3 cp s3://finex-security/finex-apigateway.p12 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "aws s3 cp s3://finex-security/apigateway.txt ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "aws s3 cp s3://finex-security/internal-ca.crt ~ec2-user/finex-security/", "\n",
+                                "chown -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chgrp -R ec2-user ~ec2-user/finex-security", "\n",
+                                "chmod 700 ~ec2-user/finex-security", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore.p12", "\n",
+                                "chmod 600 ~ec2-user/finex-security/keystore-pass.txt", "\n",
+                                "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-apigateway-svc.sh", "\n",
-                                "echo \"docker run -d -p 8080:8080 ",
+                                "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
+                                "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
-                                "-e config_server_uri=http://", 
+                                "-e config_server_uri=https://", 
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, " ",
-                                "-e FINEX_DISCOVERY_URI=http://",
+                                "-e FINEX_DISCOVERY_URI=https://",
                                 { "Fn::ImportValue" :  { "Fn::Sub": "FinexInternalAlbDnsName"  } }, "/eureka ",
-                                "-e FINEX_DISCOVERY_CLIENT_IP=`curl -s http://169.254.169.254/latest/meta-data/local-ipv4` ",
+                                "-e FINEX_DISCOVERY_CLIENT_HOSTNAME=i1.apigateway.finex.com ",
                                 "--name finex-apigateway ", 
                                 { "Ref" : "DockerUsername" },
                                 "/finex-apigateway-aws:latest\" >> ~ec2-user/run-apigateway-svc.sh", "\n",
@@ -111,6 +127,27 @@
                 }
             }
         },
+        "FinexApiGatewaySvcZone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.apigateway.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexApiGatewaySvcZone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
         "IntApiGatewaySvcTargetGrp" : {
             "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
             "DependsOn" : "FinexApiGatewaySvcZone1",
@@ -118,16 +155,16 @@
                 "HealthCheckEnabled" : true,
                 "HealthCheckIntervalSeconds" : 30,
                 "HealthCheckPath" : "/actuator/health",
-                "HealthCheckPort" : "8080",
-                "HealthCheckProtocol" : "HTTP",
+                "HealthCheckPort" : "443",
+                "HealthCheckProtocol" : "HTTPS",
                 "HealthCheckTimeoutSeconds" : 5,
                 "HealthyThresholdCount" : 5,
                 "Matcher" : {
                     "HttpCode" : "200"
                 },
                 "Name" : "int-apigateway-svc-grp",
-                "Port" : 8080,
-                "Protocol" : "HTTP",
+                "Port" : 443,
+                "Protocol" : "HTTPS",
                 "Tags" : [
                     {
                         "Key" : "Name",
@@ -139,7 +176,7 @@
                 ],
                 "Targets" : [ {
                     "Id" : { "Ref" : "FinexApiGatewaySvcZone1" },
-                    "Port" : 8080
+                    "Port" : 443
                 } ],
                 "TargetType" : "instance",
                 "UnhealthyThresholdCount" : 2,
@@ -187,8 +224,8 @@
                 "HealthCheckEnabled" : true,
                 "HealthCheckProtocol" : "TCP",
                 "Name" : "ext-apigateway-svc-grp",
-                "Port" : 8080,
-                "Protocol" : "TCP",
+                "Port" : 443,
+                "Protocol" : "TLS",
                 "Tags" : [
                     {
                         "Key" : "Name",
@@ -200,7 +237,7 @@
                 ],
                 "Targets" : [ {
                     "Id" : { "Ref" : "FinexApiGatewaySvcZone1" },
-                    "Port" : 8080
+                    "Port" : 443
                 } ],
                 "TargetType" : "instance",
                 "VpcId" : { 
@@ -214,7 +251,11 @@
             "Type" : "AWS::ElasticLoadBalancingV2::Listener",
             "DependsOn" : "ExtApiGatewaySvcTargetGrp",
             "Properties" : {
-                "LoadBalancerArn" : { 
+                "Certificates" : [ {
+                    "CertificateArn" : { "Ref" : "CertificateArn" }
+                }
+            ],
+            "LoadBalancerArn" : { 
                     "Fn::ImportValue" :  {
                         "Fn::Sub": "FinexExternalAlbArn" 
                     } 
@@ -229,8 +270,8 @@
                     },
                     "Type" : "forward"
                 } ],
-                "Port" : 80,
-                "Protocol" : "TCP"
+                "Port" : 443,
+                "Protocol" : "TLS"
             }
         }
     }

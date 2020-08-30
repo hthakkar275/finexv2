@@ -466,6 +466,19 @@
                 }
             }
         },
+        "FinexAppSecurityGroupIngressPort8443" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexAppSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 8443,
+                "IpProtocol" : "tcp",
+                "ToPort" : 8443,
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }
+        },
         "FinexAppSecurityGroupIngressPort80" : {
             "Type" : "AWS::EC2::SecurityGroupIngress",
             "DependsOn" : "FinexAppSecurityGroup",
@@ -474,6 +487,19 @@
                 "FromPort" : 80,
                 "IpProtocol" : "tcp",
                 "ToPort" : 80,
+                "GroupId" : {
+                    "Ref" : "FinexAppSecurityGroup"
+                }
+            }
+        },
+        "FinexAppSecurityGroupIngressPort443" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexAppSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 443,
+                "IpProtocol" : "tcp",
+                "ToPort" : 443,
                 "GroupId" : {
                     "Ref" : "FinexAppSecurityGroup"
                 }
