@@ -388,19 +388,59 @@ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazon
 
 Refer to the [Application Security](#application-security) section for TLS security architecture.
 
-All private keys, certificates and keystores are created manually by a security administrator external to the automated deployment process, though a shell script [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) is available to expeditiously create all necessary TLS artifacts as well as copy the relevant artifacts to an S3 bucket used during service deplooyment on AWS. T
+All private keys, certificates and keystores are created manually by a security administrator external to the automated deployment process, though a shell script [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) is available to expeditiously create all necessary TLS artifacts as well as copy the relevant artifacts to an S3 bucket used during service deplooyment on AWS. The procedure below uses that [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh). Anyone wishing to forgo the use of [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) and create the TLS artifacts manually, please refer to the shell script code as it is quite straightforward and well-documented to allow one to extract the necessary steps that must be performed manually. Another option one may consider it to use the [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) as the base, and make necessary adjustments to create a customized script.
 
-In the event that system administrator wishes to create the TLS artifacts manually, the procedure below describes the required actions which are codified in the [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh).
+Each step is described as to the purpose and, where applicable, supplemented with the command to execute on [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh). Password values are defaulted to `changeit` in the example commands. Please substitute appropriate desired password value in place of the default password `changeit`.
 
-1. Create a self-signed TLS certificate that serves as an internal certificate authority.
-2. Create a private key and a Certificate Signature Request (CSR) for each of the dedicated service as well as the internal ALB and internet-facing ELB.
-3. Sign each dedicated service CSR using Internal-CA certificate.
-4. Create a PKCS12 keystore for each dedicated service, and import the dedicated private key, Internal-CA-Signed dedicated certificate, and the Internal-CA certificate itself.
-5. Create a simple text file for each service, and add one line with the keystore password used to create the PKCS12 keystore. 
-6. Create a secure S3 bucket at `s3://finex-security`.
-7. Copy the PKCS12 keystore files and the password files for all service to `s3://finex-security`. Note that the password should ideally be kept in password vault system such as CyberArk, but for this application a secure S3 bucket should suffice.
-8. Copy the internal CA certificate file to `s3://finex-security`
-9. Import the dedicated certificate for the internal ALB and the internet-facing ELB into the AWS Certificate Manager. 
+1. Create a secure S3 bucket at `s3://finex-security`. 
+2. Create a self-signed TLS certificate that serves as an internal certificate authority, and copy the internal CA certificate (`.crt`) file to `s3://finex-security`
+   
+   ```bash
+   finex-build-certs.sh -t internal-ca -p changeit -s s3://finex-security
+   ```
+
+3. For each dedicated service TLS artifact not intended for the AWS load balancers
+   1. Create a private key and a Certificate Signature Request (CSR) for each of the dedicated service.
+   2. Sign each dedicated service CSR using Internal-CA certificate.
+   3. Create a PKCS12 keystore for each dedicated service, and import the dedicated private key, Internal-CA-Signed dedicated certificate, and the Internal-CA certificate itself.
+   4. Create a simple text file for each service, and add one line with the keystore password used to create the PKCS12 keystore. 
+   5. Copy the PKCS12 keystore files and the password files for all service to `s3://finex-security`. Note that the password should ideally be kept in password vault system such as CyberArk, but for this application a secure S3 bucket should suffice.
+
+      ```bash
+      # All steps between sub-steps in step 3 are automated with a single execution of the finex-build-certs.sh script for each of the dedicated service artifact. The -i is the alias of the Internal CA certificate and -P is the password for the Internal CA certificate, and this is repeated for each dedicated TLS artifact for sigining the CSR
+
+      finex-build-certs.sh -t product -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t participant -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t order -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t orderbook -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t trade -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t apigateway -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t discovery -p changeit -i internal-ca -P changeit -s s3://finex-security
+      finex-build-certs.sh -t config -p changeit -i internal-ca -P changeit -s s3://finex-security
+      ```
+4.  Create certificate and private key for load balancers to import into the AWS Certificate Manager (ACM). An ACM ARN for each imported certificate is provided in the load balancer Cloudformation scripts, with which AWS retrieves these artifacts from ACM when instantiating the load balancers. Refer to https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html for details on process of importing certificate into ACM. The ACM import requires three inputs
+       *  `Certificate body`: Public key certificate (`.crt`) of the TLS certificate key-pair in PEM format
+       *  `Certificate private key` Un-encrypted private key of the TLS certificate key-pair in PEM format
+       *  `Certificate chain`: Internal CA certificate (`.crt`) in PEM format
+
+    The [finex-build-certs.sh](financial-exchange-env/finex-build-certs.sh) creates `Certificate body` and `Certificate private key` needed for by running the following commands. These will be ouptut in files with pattern `*-acm-certificate-body.pem` and `*-acm-certificate-private-key.pem`.  
+
+      ```bash
+      finex-build-certs.sh -t ilb -p ilb -i internal-ca -P internalca -r us-east-2 -s s3://finex-security
+      finex-build-certs.sh -t elb -p elb -i internal-ca -P internalca -f finex.naperiltech.com -s s3://finex-security
+      ```
+
+      Note that the internal load balancer command is provided a required `-r` option to specify AWS region. The shell script uses this value to determine the DNS to attach in the Subject Alternative Names extensions when creating the certificate for the internal load balancer. This is dould be the DNS suffix that AWS assigns to internal load balancer. For example, if `-r` is set to us-east-2, the DNS is `*.us-east-2.elb.amazonaws.com`
+
+      Similarly the external load balancer (i.e. internet-facing) is provided an optional `-f` option to speicfy the publicly registered domain name. The shell script uses this value to determine the DNS to attach in the Subject Alternative Names extensions when creating the certificate for the internet-facing load balancer. If, however, intention is to not map the internet-facing load balancer to a publicly registered domain name, then the `-r` option is required to provide the AWS region. Like the case with internal load balancer, the shell script will determine the DNS name. In the case of internet-facing network load balancer, however, the pattern for the DNS name has a subtle difference as compared to that of internal applicaiton load balancer. For example, if `-r` is set to us-east-2, the DNS is `*.elb.us-east-2.amazonaws.com`
+
+5.  Import the certificate and private key PEM for the internal ALB and the internet-facing ELB into the ACM. 
+    * Refer to https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html for procedure 
+    * Use the above described `Ceritifcate body` and `Certificate private key` ACM inputs for each of the load balancer certificate. 
+    * Use the `internal-ca.crt` from above for the `Certificate chain` ACM input.
+    * **IMPORTANT**: Tag each certificate as follows. The load balancer CloudFormation scripts will use these tag names to look up the certificate ARN.
+      * Internal Load Balancer:  `finex-ilb`
+      * Internet-facing Load Balancer: `finex-elb`
 
 #### Maven Build and Docker Build Services
 
