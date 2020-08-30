@@ -74,10 +74,12 @@
                             [
                                 "#!/bin/bash -ex", "\n",
                                 "yum update -y", "\n",
+                                "yum install python3 -y", "\n",
                                 "yum install gcc -y", "\n",
-                                "yum install python-pip -y", "\n",
-                                "yum install postgresql-devel python-devel -y", "\n",
-                                "pip install pgcli==2.2.0", "\n",
+                                "yum install python3-pip -y", "\n",
+                                "yum install postgresql-devel python3-devel -y", "\n",
+                                "alternatives --install /usr/bin/python python /usr/bin/python3.7 1", "\n",
+                                "pip3 install pgcli", "\n",
                                 "\n"
                             ]
                         ]
