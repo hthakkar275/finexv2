@@ -74,6 +74,10 @@
                             [
                                 "#!/bin/bash -ex", "\n",
                                 "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
                                 "yum install python3 -y", "\n",
                                 "yum install gcc -y", "\n",
                                 "yum install python3-pip -y", "\n",
