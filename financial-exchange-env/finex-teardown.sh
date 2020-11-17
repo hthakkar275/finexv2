@@ -55,7 +55,7 @@ function delete_infra_services_stacks() {
         aws cloudformation delete-stack --stack-name $ESTACK
     done
 
-    for i in {1..20}; do
+    for i in {1..10}; do
         echo "Deleting load balancers and nat gateway stacks ..."
         sleep 30
     done
