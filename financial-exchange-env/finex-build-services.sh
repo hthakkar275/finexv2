@@ -7,7 +7,7 @@ function maven_build_services() {
         POM_PATH=$PATH_TO_SOURCE_CODE/financial-exchange-$SVC/pom.xml
         echo "Building $SVC service ..."
         MAVEN_BUILD_STATUS=`mvn -f $POM_PATH clean package | grep BUILD | awk '{print $3}'`
-        if [[ $MAVEN_BUILD_STATUS == "SUCCESS" ]]; then
+        if [[ "$MAVEN_BUILD_STATUS" =~ "SUCCESS" ]]; then
             echo "$SVC service build successful"
         else 
             echo "$SVC service build failed"
@@ -30,7 +30,7 @@ function docker_build_base_image() {
     $PATH_TO_SOURCE_CODE/financial-exchange-env | grep "Successfully tagged"`
 
     DOCKER_BUILD_STATUS=`echo $DOCKER_BUILD_STATUS_OUTPUT  | awk '{print $1, $2}'`
-    if [[ $DOCKER_BUILD_STATUS == "Successfully tagged" ]]; then
+    if [[ "$DOCKER_BUILD_STATUS" =~ "Successfully tagged" ]]; then
         echo "Base image with OS and JDK docker build successful"
         echo "Pushing base image docker image to docker hub"
         DOCKER_TAG=`echo $DOCKER_BUILD_STATUS_OUTPUT  | awk '{print $3}'`
@@ -51,11 +51,11 @@ function docker_build_services() {
     for SVC in "config" "apigateway" "discovery" "products" "participants" "orders" "orderbooks" "trades"; do
         DOCKER_BUILD_STATUS_OUTPUT=`docker build \
         -f $PATH_TO_SOURCE_CODE/financial-exchange-$SVC/dockerfile.$SVC \
-        -t ${FINEX_DOCKER_USERNAME}/finex-$SVC-aws:latest \
+        -t ${FINEX_DOCKER_USERNAME}/finex-$SVC-${DATA_CENTER}:latest \
         $PATH_TO_SOURCE_CODE/financial-exchange-$SVC | grep "Successfully tagged"`
 
         DOCKER_BUILD_STATUS=`echo $DOCKER_BUILD_STATUS_OUTPUT  | awk '{print $1, $2}'`
-        if [[ $DOCKER_BUILD_STATUS == "Successfully tagged" ]]; then
+        if [[ "$DOCKER_BUILD_STATUS" =~ "Successfully tagged" ]]; then
             echo "$SVC service docker build successful"
             echo "Pushing $SVC service docker image to docker hub"
             DOCKER_TAG=`echo $DOCKER_BUILD_STATUS_OUTPUT  | awk '{print $3}'`

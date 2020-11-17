@@ -1,0 +1,44 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Resources" : {
+        "NatGatewayZone2" : {
+            "Type" : "AWS::EC2::NatGateway",
+            "Properties" : {
+                "AllocationId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexEIPZone2AllocationId" 
+                    }
+                }, 
+                "SubnetId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPubSubnetIdZone2" 
+                    }
+                }, 
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "finex-nat-zone2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "NatRouteZone2" : {
+            "Type" : "AWS::EC2::Route",
+            "DependsOn" : "NatGatewayZone2",
+            "Properties" : {
+                "RouteTableId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateZone2RouteTableId" 
+                    }
+                }, 
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "NatGatewayId" : { 
+                    "Ref" : "NatGatewayZone2"
+                }
+            }
+        }
+    }
+}

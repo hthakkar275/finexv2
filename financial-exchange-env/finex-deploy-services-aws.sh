@@ -80,9 +80,11 @@ function get_acm_certificate_arn() {
 
 # Deploy the finex-nat-gateway so that all services in the private subnet
 # have internet access to install docker and other packages
+STACK_NAME="finex-nat-gateway-$FINEX_AWS_REGION-zone1"
+create_aws_stack finex-nat-gateway-zone1.json $STACK_NAME 
 
-STACK_NAME="finex-nat-gateway-$FINEX_AWS_REGION"
-create_aws_stack finex-nat-gateway.json $STACK_NAME 
+STACK_NAME="finex-nat-gateway-$FINEX_AWS_REGION-zone2"
+create_aws_stack finex-nat-gateway-zone2.json $STACK_NAME 
 
 # Deploy internal application load balancer. The DNS name of the interanl ALB
 # will be supplied into the docker images for all application services
@@ -98,6 +100,18 @@ STACK_NAME="finex-external-alb-$FINEX_AWS_REGION"
 create_aws_stack finex-external-alb.json $STACK_NAME
 EXTERNAL_ALB_DNS_NAME=`get_aws_stack_output $STACK_NAME ExternalAlbDnsName`
 echo "External ALB DNS Name is [$EXTERNAL_ALB_DNS_NAME]"
+
+# Deploy cassandra hosts. Cassandra is used for storing application traces
+STACK_NAME="finex-cassandra-services-$FINEX_AWS_REGION"
+create_aws_stack finex-cassandra-services.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME"
+
+# Deploy zookeper & kafka. 
+STACK_NAME="finex-kafka-services-$FINEX_AWS_REGION"
+create_aws_stack finex-kafka-services.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME"
+
+# Deploy zipkin. 
+STACK_NAME="finex-zipkin-services-$FINEX_AWS_REGION-zone1"
+create_aws_stack finex-zipkin-services-zone1.json $STACK_NAME "ParameterKey=KeyName,ParameterValue=$FINEX_AWS_KEY_NAME ParameterKey=CassandraUsername,ParameterValue=$FINEX_CASSANDRA_USERNAME ParameterKey=CassandraPassword,ParameterValue=$FINEX_CASSANDRA_PASSWORD"
 
 # Deploy the config service EC2 and add it to the internal ALB
 STACK_NAME="finex-config-service-$FINEX_AWS_REGION-zone1"
@@ -130,7 +144,6 @@ create_aws_stack finex-application-services-zone1.json $STACK_NAME "ParameterKey
 # The required DNS parameters must be declared in the environment before running this script
 # If these environment variables are not defined, DNS record will not be created but the user
 # can still invoke the API from public internet using the public DNS name of the internet-facing external ALB
-#
 if [[ -z $FINEX_R53_HOSTED_ZONE_ID || -z $FINEX_URL ]]; then
     echo "Route 53 hosted zone id and the finex URL are not defined as environment variables. Will not register a DNS record to the internet-facing load balancer"
 else

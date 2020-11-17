@@ -1,0 +1,339 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "String"
+        }
+    },    
+    "Mappings": {
+        "RegionToAMIMap": {
+            "us-east-1": {
+                "AMI": "ami-0323c3dd2da7fb37d"
+            },
+            "us-east-2": {
+                "AMI": "ami-0f7919c33c90f5b58"
+            },
+            "us-west-1": {
+                "AMI": "ami-06fcc1f0bc2c8943f"
+            },
+            "us-west-2": {
+                "AMI": "ami-0d6621c01e8c2de2c"
+            }
+        }
+    },
+    "Resources" : {
+        "FinexCassandraSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Cassandra services security group",
+                "GroupName" : "FinexCassandraSg",
+                "VpcId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexVpcId" 
+                    } 
+                },
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "FinexCassandraSecurityGroup"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ]
+            }
+        },
+        "FinexCassandraSecurityGroupIngressPort22" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexCassandraSecurityGroup",
+            "Properties" : {
+                "FromPort" : 22,
+                "IpProtocol" : "tcp",
+                "ToPort" : 22,
+                "GroupId" : {
+                    "Ref" : "FinexCassandraSecurityGroup"
+                },
+                "SourceSecurityGroupId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPubSgId" 
+                    }
+                }
+            }     
+        },
+        "FinexCassandraSecurityGroupIngressPort7000" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexCassandraSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 7000,
+                "IpProtocol" : "tcp",
+                "ToPort" : 7000,
+                "GroupId" : {
+                    "Ref" : "FinexCassandraSecurityGroup"
+                }
+            }
+        },
+        "FinexCassandraSecurityGroupIngressPort7001" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexCassandraSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 7001,
+                "IpProtocol" : "tcp",
+                "ToPort" : 7001,
+                "GroupId" : {
+                    "Ref" : "FinexCassandraSecurityGroup"
+                }
+            }
+        },
+        "FinexCassandraSecurityGroupIngressPort9042" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "DependsOn" : "FinexCassandraSecurityGroup",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "FromPort" : 9042,
+                "IpProtocol" : "tcp",
+                "ToPort" : 9042,
+                "GroupId" : {
+                    "Ref" : "FinexCassandraSecurityGroup"
+                }
+            }
+        },
+        "FinexAppSecurityGroupEgress" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "CidrIp" : "0.0.0.0/0",
+                "IpProtocol" : "-1",
+                "GroupId" : {
+                    "Ref" : "FinexCassandraSecurityGroup"
+                }
+            }
+        },
+        "FinexCassandra1Zone1" : {
+            "Type" : "AWS::EC2::Instance",
+            "DependsOn" : "FinexCassandraSecurityGroup",
+            "Properties" : {
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] 
+                ]
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionToAMIMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },          
+                "KeyName" : { 
+                    "Ref" : "KeyName"
+                },
+                "SecurityGroupIds" : [{
+                    "Ref" : "FinexCassandraSecurityGroup"
+                } ], 
+                "SubnetId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSubnetIdZone1" 
+                    }
+                },
+                "InstanceType" : "t2.small",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-cassandra-1-zone-1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install java-1.8.0-openjdk -y", "\n",
+                                "touch /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"[cassandra]\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"name=Apache Cassandra\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"baseurl=https://downloads.apache.org/cassandra/redhat/311x/\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"gpgcheck=1\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"repo_gpgcheck=1\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"gpgkey=https://downloads.apache.org/cassandra/KEYS\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "yum update -y", "\n",
+                                "yum install cassandra -y", "\n",
+                                "cp /etc/cassandra/default.conf/cassandra.yaml /etc/cassandra/default.conf/cassandra-original.yaml", "\n",
+                                "sed -i \"s/^cluster_name.*$/cluster_name: 'Finex Cluster'/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "LOCAL_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`", "\n",
+                                "SEED_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`", "\n",
+                                "sed -i \"s/- seeds: \\\"127.0.0.1\\\"/- seeds: \\\"${SEED_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^listen_address:.*localhost/listen_address: \\\"${LOCAL_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^authenticator:.*AllowAllAuthenticator/authenticator: PasswordAuthenticator/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^authorizer:.*AllowAllAuthorizer/authorizer: CassandraAuthorizer/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^rpc_address:.*localhost/rpc_address: \\\"${LOCAL_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "service cassandra start", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }, 
+        "FinexCassandra1Zone2" : {
+            "Type" : "AWS::EC2::Instance",
+            "DependsOn" : "FinexCassandra1Zone1",
+            "Properties" : {
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "b"
+                    ] 
+                ]
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionToAMIMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },          
+                "KeyName" : { 
+                    "Ref" : "KeyName"
+                },
+                "SecurityGroupIds" : [{
+                    "Ref" : "FinexCassandraSecurityGroup"
+                } ], 
+                "SubnetId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSubnetIdZone2" 
+                    }
+                },
+                "InstanceType" : "t2.small",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-cassandra-1-zone-2"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install java-1.8.0-openjdk -y", "\n",
+                                "touch /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"[cassandra]\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"name=Apache Cassandra\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"baseurl=https://downloads.apache.org/cassandra/redhat/311x/\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"gpgcheck=1\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"repo_gpgcheck=1\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "echo \"gpgkey=https://downloads.apache.org/cassandra/KEYS\" >> /etc/yum.repos.d/cassandra.repo", "\n",
+                                "yum update -y", "\n",
+                                "yum install cassandra -y", "\n",
+                                "cp /etc/cassandra/default.conf/cassandra.yaml /etc/cassandra/default.conf/cassandra-original.yaml", "\n",
+                                "sed -i \"s/^cluster_name.*$/cluster_name: 'Finex Cluster'/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "LOCAL_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`", "\n",
+                                "SEED_IP=\"", { "Fn::GetAtt" : [ "FinexCassandra1Zone1", "PrivateIp" ] }, "\"", "\n",
+                                "sed -i \"s/- seeds: \\\"127.0.0.1\\\"/- seeds: \\\"${SEED_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^listen_address:.*localhost/listen_address: \\\"${LOCAL_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^authenticator:.*AllowAllAuthenticator/authenticator: PasswordAuthenticator/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^authorizer:.*AllowAllAuthorizer/authorizer: CassandraAuthorizer/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "sed -i \"s/^rpc_address:.*localhost/rpc_address: \\\"${LOCAL_IP}\\\"/\" /etc/cassandra/default.conf/cassandra.yaml", "\n",
+                                "service cassandra start", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }, 
+        "FinexCassandra1Zone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "DependsOn" : "FinexCassandra1Zone1",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.z1.cassandra.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexCassandra1Zone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "FinexCassandra1Zone2DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "DependsOn" : "FinexCassandra1Zone2",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.z2.cassandra.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexCassandra1Zone2",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        }
+    },
+    "Outputs" : {
+        "FinexCassandra1Zone1Dns" : {
+            "Description" : "Private DNS of the finex cassandra 1 zone 1 instance",
+            "Value" : {
+                "Fn::GetAtt" : [
+                    "FinexCassandra1Zone1",
+                    "PrivateDnsName"
+                ]
+            },
+            "Export" : {
+                "Name" : "FinexCassandra1Zone1Dns" 
+            }   
+        },
+        "FinexCassandra1Zone2Dns" : {
+            "Description" : "Private DNS of the finex cassandra 1 zone 2 instance",
+            "Value" : {
+                "Fn::GetAtt" : [
+                    "FinexCassandra1Zone2",
+                    "PrivateDnsName"
+                ]
+            },
+            "Export" : {
+                "Name" : "FinexCassandra1Zone2Dns" 
+            }   
+        }
+
+    }
+}

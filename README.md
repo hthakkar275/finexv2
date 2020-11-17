@@ -28,8 +28,15 @@ A financial exchange system used to experiment with software architecture styles
 [Version 2.1](https://github.com/hthakkar275/finexv2)
    *  Secure communication between services using TLS encryption
 
-The stock exchange application itself provides APIs to place orders which are then matched using an orderbook implementation using simple price-time order matching. Additionally it has APIs to retrieve products available for trade, to view matched trades, and to retrieve orders. 
+[Version 2.2](https://github.com/hthakkar275/finexv2)
+   *  Distributed tracing using Spring Sleuth, Apache Kafka, Cassandra and Zipkin
 
+The stock exchange system is a trading exchange system is a distributed system with set of services that 
+   * Accepts buy & sell orders from brokers 
+   * Maintain a price-time ordered order book for each instrument 
+   * Matches opposite orders into trades using price-time matching algorighm
+   * Provides APIs for order entry and querie for orders, products, participants and trades
+   
 The distributed services of the system are individual Spring Boot applications. Together the services form an API-based system with API in the form of web services. The API is categorized into internal and external API. The internal API follow the path convention is `/finex/internal/api/domain`, and external API follows the path convention `/finex/api/domain`. The objective of the internal vs external API is to make external API potentially available on the public Internet whereas the internal API is available only within the organization. The external API consists of capabilities such as placing and order whereas internal API consists of capabilities such as product maintenance.
 
 The services in the system use PostgreSQL for persistence. While an ideal microservices architecture calls for each service having its own decoupled persistence storage, the simplicity of the data model led to use of single PostgreSQL schema used by all services. The business data model itself provides significant isolation, and the service implementations themselves only query and update only those database tables that are directly applicable to the service. So while there is no forced isolation by means of decoupled schemas or even decoupled database instances, the service implementations practice the decoupled storage use.
@@ -39,6 +46,8 @@ In addition to the application services, the system has Spring Cloud Configurati
 The application services retrieve their application parameters from the configuration service. The application parameters may be different, for example, depending on the type of deployment such as local or AWS or any other mode of operation. The Spring Cloud configuration service, in turn, fetches the configurations from designated git repository on behalf of the requesting Application Service. The git repository should contain `.yml` files for each application and its mode of operation. The mode of operation is determined by the spring profile setting in each application.
 
 The application services communicate with each other via the API gateway service. The application services and API gateway service register with the discovery service to allow API gateway to discover the available application services for API routing and load balancing.
+
+All application services and the API gateway service incorporate Spring Sleuth to generate execution traces at the system bouandaries. The execution traces of the overall system are collected and are viewable on the distributed tracing system Zipkin.
 
 All service types are dockerized. Each docker image can be run in a docker container where the docker containers can be launched on a single bare-metal hardware, single VM, or multiple VMs. The objective of this implementation is to deploy each service in a dedicated AWS t3.micro EC2 instance. The `/financial-exchange-env` contains the necessary AWS Cloudformation configuration files and bash scripts that automate the maven and docker builds of the services as well as deployment of necessary infrastructure in AWS.
 
@@ -68,6 +77,9 @@ Refer to the Finex Complete Picture diagram above for reference. The infrastruct
 1.  Configuration Service
 2.  Discovery Service
 3.  API Gateway Service
+4.  Kafka Service
+5.  Cassandra Service
+6.  Zipkin Service
 
 ### Configuration Service
 
@@ -133,6 +145,23 @@ One or more configuration services can be deployed behind an internal load balan
 * Retrieves the deployment-specific configuration properties from the Configuration Service
 * Registers with the Discovery Service to allow Application Services to discover the API Gateway Service  as the API Gateway Service
 * Routes API invocations amongst the Application Services
+* Produces execution traces at the service entry/exit boundary using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](###kafka-service) for consumption by [Zipkin Service](###zipkin-service)
+
+### Kafka Service
+
+Kafka Service is a set of two [Apache Kafka](https://kafka.apache.org) brokers. The two brokers are hosted on two different EC2 instances in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Kafka Service is used primarily as asynchornous communication medium between [Application Services](##application-services) and [Zipkin Service](##zipkin-service). The [Application Services](##application-services) capture execution entry and exit points at the service boundaries and send those information as exectuion trace data points to Kafka Service which are then consumed by [Zipkin Service](##zipkin-service).
+
+Though it is curently used only for purpose of streaming execution trace messages from [Application Services](##application-services) to [Zipkin Service](##zipkin-service), the Kafka Service can be used for any general event-based communication. Future versions of Finex will have an option of event-based architecture where the [Application Services](##application-services) communicate with one another via asynchronous events as opposed to the current synchronous HTTP communication. The Kafka Service will be the event distribution platform in that event-based architecture. 
+
+There are also a pair of Apache Zookeeper hostsed on two different dedicated EC2 instances. The Apache Zookeeper is a required component to manage a cluster of multiple Kafka brokers. Refer to [Apache Kafka](https://kafka.apache.org) docuemntation for more information. Finex systems itself does not use the Apache Zookeper directly. 
+
+### Cassandra Service
+
+Cassandar Service is a pair of EC2 instances hosting the [Apache Cassandra](https://cassandra.apache.org) NoSQL database. The EC2 instances are deployed in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Cassandra Service is used primarily by [Zipkin Service](##zipkin-service) to store distributed tracing data. However, it is a general-purpose NoSQL database which may be employable for other purposes. 
+
+### Zipkin Service
+
+Zipkin Service is a single EC2 instance hosting the [Zipkin](https://zipkin.io) distributed tracing application. The applicaiton is run using the standard Zipkin docker image from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing it to the [Kafka Service](##kafka-service) for consumption of execution traces produced by the [Application Services](##application-services). Furthermore, the configuration points to [Cassandra Service](##cassandra-service) to persist the traces. The UI dashboard is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. Refer to [Distributed Tracing](#distributed-tracing) for more details.
 
 ## Application Services
 
@@ -146,6 +175,7 @@ Each service is:
 * Retrieves the deployment-specific configuration properties from the Configuration Service
 * Registers with the Discovery Service to allow discovery by API Gateway Service
 * Communicates with other Application Services via the API Gateway Service
+* Produces execution traces at the service entry/exit boundaries using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](###kafka-service) for consumption by [Zipkin Service](###zipkin-service)
 
 The table below identifies the location of the source code for each service within this repository.
 
@@ -384,6 +414,21 @@ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazon
 ```
 5. Load the `finexschema.sql` file into pgcli which will automatically run all DDL commands.
 
+```postgres
+[ec2-user@ip-xxx-xxx-xxx-xxx ~]$ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazonaws.com/finex
+Server: PostgreSQL 12.4
+Version: 3.0.0
+Chat: https://gitter.im/dbcli/pgcli
+Home: http://pgcli.com
+finex> \i finexschema.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+Time: 0.050s
+finex>
+```
+
 #### Create TLS Artifacts
 
 Refer to the [Application Security](#application-security) section for TLS security architecture.
@@ -448,7 +493,7 @@ Each step is described as to the purpose and, where applicable, supplemented wit
 2.  Run the `finex-build-aws.sh` as shown below to perform maven build, docker images build, and push the docker images to dockerhub. It will perform these actions on all Infrastructure Services & Application Services. 
 
 ```console
-finex-build-aws.sh -b build-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -s <absolute path to parent directory of your local git repository> -i <Docker Hub username>
+finex-build-aws.sh -b build-services -r <aws region name> -c <absolute path to financial-exchange-env in your local git clone of https://github.com/hthakkar275/finexv2> -i <Docker Hub username>
 ```
 3. The shell script will take upwards of 30 to 45 minutes to perform all maven builds, docker builds, docker push and create AWS infrastructure. You can monitor the output from the `finex-build-aws.sh` to track the progress. The progress can also be tracked in the AWS Cloudformation console.
 
@@ -509,17 +554,53 @@ The automated AWS deployment automatically perform the following steps to use th
 2. Docker `ENTRYPOINT` will import the Internal-CA certificate form its mapped `/finex-security` into the `cacerts` of the JDK in the docker image
 3. Each Spring Boot Application has SSL keystore configuration pointing to the `/finex-security` to use the TLS certificate of the service.
 
+# Distributed Tracing
+
+Distributed tracing is an essential tool in distributed service-oriented architecture. The Finex system employs [Zipkin](https://zipkin.io) for distribued tracing. The Finex distributed tracing feature has following components.
+
+1. [Application Services](##application-services) - Producers of execution trace events
+2. [Zipkin Service](###zipkin-service) - Consumes execution trace events, manages execution trace events, and provides dashboard to view end-to-end execution traces
+3. [Kafka Service](###kafka-service) - Stream execution trace events from producers to consumer
+4. [Cassandra Service](##cassandra-service) - Persist execcution trace events
+
+![Distributed Tracing Logial Architecture](financial-exchange-docs/LogicalDistributedTracingArchitecture.png) 
+
+[Application Services](##application-services) incorporate Spring Sleuth (shownn in pom dependency below) which automatically intercepts incoming and outgoing HTTP/HTTPS requests and manages trace id values in HTTP headers of requests. 
+
+```console		
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-sleuth</artifactId>
+</dependency>
+<dependency>
+	<groupId>org.springframework.kafka</groupId>
+	<artifactId>spring-kafka</artifactId>
+</dependency>
+```
+The trace id values are used to track a request as it traverses one more more services in the distributed Finex system. Each Application Service incorporates Kafka dependency (shown in pom dependency above) to allow the service to become a Kafka producer. Application Services sends execution trace event messges to a Kafka topic named `zipkin` hosted on [Kafak Service](###kafka-service). 
+
+![Distributed Tracing AWS Architecture](financial-exchange-docs/PhysicalAWSDistributedTracingArchitecture.png) 
+
+A topic named `zipkin` exists on [Kafak Service](###kafka-service) to stream execution trace events from the producers to the consumers. The Finex [Kafak Service](###kafka-service) is not the AWS Managed Kafka Service, but rather it is a set of two Kafka brokers and two Zookeper nodes hosted on dedicated EC2 instances. As the figure above shows, the Kafka brokers and Zookeeper nodes are deployed in two different AWS Availability Zones to promote fault tolerance and high availability. The topic `zipkin` has the following characteristics
+
+* Partion Count = 1
+* Replication Factor = 1
+
+[Zipkin Service](###zipkin-service) consumes the execution trace events from Kafka topic `zipkin`, and persists the events in [Cassandra Service](##cassandra-service). When a user navigates to the Zipkin dashboard UI, [Zipkin Service](###zipkin-service) retreives the trace events from [Cassandra Service](##cassandra-service) based on the user query.
+
+[Zipkin Service](###zipkin-service) is a single EC2 instance hosting the [Zipkin](https://zipkin.io) application. The applicaiton is run using the standard Zipkin docker image `openzipkin/zipkin` from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing to the [Kafka Service](##kafka-service) for consumption of execution traces and to [Cassandra Service](##cassandra-service) to persist the traces. The [Zipkin Service](###zipkin-service) manages the creation of appropriate necessary Cassandra schemas. The Zipkin UI dashboard, as shown in an example scren capture below, is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. 
+
+![Zipkin Dashboard](financial-exchange-docs/ZipkinDashboard.png) 
+
 # Future Directions
 
 This is just one of the many possible choice of architecture employing microservices. The objective is to explore other architecture styles and compare the benefits and drawbacks. Additionally there are certain aspects in the feature set of finex application itself that can be enhanced or improved. That said the following is a rough prioritized backlog of epics to address in the future.
 
-1. Use Istio service mesh which would be an alternative to Spring Zuul and the Spring Cloud Configuration Server
-2. Event-drive architecture for inter-service communication. This would be yet another alternative or a supplement to Spring Zuul or Istio
-3. Provide push notifications to clients for trades
-4. API improvement
-5. Securing the finex API
+1. Centralized log
+2. Use Istio service mesh which would be an alternative to Spring Zuul and the Spring Cloud Configuration Server
+3. Event-drive architecture for inter-service communication. This would be yet another alternative or a supplement to Spring Zuul or Istio
+4. Provide push notifications to clients for trades
+5. Authentication & authorization of finex API
+5. API improvement
 6. Use of of CI/CD tools such as Jenkins 
 7. Performance analysis & improvement
-
-
-

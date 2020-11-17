@@ -1,0 +1,190 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "String"
+        },
+        "CassandraUsername": {
+            "Description": "Cassandra database username",
+            "Type": "String"
+        },
+        "CassandraPassword": {
+            "Description": "Cassandra database password",
+            "Type": "String"
+        }
+    },    
+    "Mappings": {
+        "RegionToAMIMap": {
+            "us-east-1": {
+                "AMI": "ami-0323c3dd2da7fb37d"
+            },
+            "us-east-2": {
+                "AMI": "ami-0f7919c33c90f5b58"
+            },
+            "us-west-1": {
+                "AMI": "ami-06fcc1f0bc2c8943f"
+            },
+            "us-west-2": {
+                "AMI": "ami-0d6621c01e8c2de2c"
+            }
+        }
+    },
+    "Resources" : {
+        "FinexZipkin1Zone1" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "AvailabilityZone" : {
+                    "Fn::Join" : [ "", [
+                        {
+                            "Ref" : "AWS::Region"
+                        },
+                        "a"
+                    ] 
+                ]
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionToAMIMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },          
+                "KeyName" : { 
+                    "Ref" : "KeyName"
+                },
+                "SecurityGroupIds" : [{ 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSgId" 
+                    }
+                } ], 
+                "SubnetId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexAppSubnetIdZone1" 
+                    }
+                },
+                "InstanceType" : "t2.micro",
+                "IamInstanceProfile" : "AdminAccess",
+                "Tags" : [ { 
+                        "Key" : "Name",
+                        "Value" : "finex-zipkin-1-zone1"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "UserData" : {
+                    "Fn::Base64" : {
+                        "Fn::Join" : [
+                            "",
+                            [
+                                "#!/bin/bash -ex", "\n",
+                                "yum update -y", "\n",
+                                "yum install docker -y", "\n",
+                                "systemctl start docker", "\n",
+                                "systemctl enable docker", "\n",
+                                "usermod -aG docker ec2-user", "\n",
+                                "docker pull openzipkin/zipkin", "\n",
+                                "docker run -d -p 80:9411 ",
+                                "-e STORAGE_TYPE=cassandra3 ",
+                                "-e CASSANDRA_CONTACT_POINTS=\"", 
+                                { "Fn::ImportValue" :  { "Fn::Sub": "FinexCassandra1Zone1Dns" } }, ",",
+                                { "Fn::ImportValue" :  { "Fn::Sub": "FinexCassandra1Zone1Dns" } },
+                                "\" ", 
+                                "-e CASSANDRA_USERNAME=\"", { "Ref" : "CassandraUsername" }, "\" ",
+                                "-e CASSANDRA_PASSWORD=\"", { "Ref" : "CassandraPassword" }, "\" ", 
+                                "-e COLLECTOR_KAFKA_ENABLED=true ",
+                                "-e KAFKA_GROUP_ID=zipkin-group ",
+                                "-e KAFKA_TOPIC=zipkin ",
+                                "-e KAFKA_BOOTSTRAP_SERVERS=\"", 
+                                { "Fn::ImportValue" :  { "Fn::Sub": "FinexKafka1Zone1Dns" } }, ":9092,",
+                                { "Fn::ImportValue" :  { "Fn::Sub": "FinexKafka1Zone2Dns" } }, ":9092",
+                                "\" ", 
+                                "-e MODULE_OPTS=\"-D--logging.level.com.datastax.driver.core.Connection=debug -D--logging.level.com.datastax.driver.core.QueryLogger.NORMAL=trace\" ", 
+                                "--name zipkin ",
+                                "openzipkin/zipkin", "\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "FinexZipkin1Zone1DNSRecord" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "DependsOn" : "FinexZipkin1Zone1",
+            "Properties" : {
+                "HostedZoneId" : {
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexPrivateHostedZoneId" 
+                    }
+                },
+                "Name" : "i1.z1.zipkin.finex.com",
+                "ResourceRecords" : [
+                   {
+                        "Fn::GetAtt" : [
+                            "FinexZipkin1Zone1",
+                            "PrivateIp"
+                        ]    
+                   }
+                ],
+                "TTL" : "300",
+                "Type" : "A"
+             }
+        },
+        "ExtZipkinSvcTargetGrp" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties" : {
+                "HealthCheckEnabled" : true,
+                "HealthCheckProtocol" : "TCP",
+                "Name" : "ext-zipkin-svc-grp",
+                "Port" : 80,
+                "Protocol" : "TCP",
+                "Tags" : [
+                    {
+                        "Key" : "Name",
+                        "Value" : "ext-zipkin-svc-grp"
+                    }, {
+                        "Key" : "Cloudformation",
+                        "Value" : "Yes"
+                    }
+                ],
+                "Targets" : [ {
+                    "Id" : { "Ref" : "FinexZipkin1Zone1" },
+                    "Port" : 80
+                } ],
+                "TargetType" : "instance",
+                "VpcId" : { 
+                    "Fn::ImportValue" :  {
+                        "Fn::Sub": "FinexVpcId" 
+                    } 
+                }
+            }
+        },
+        "ExternalAlbListener" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+            "DependsOn" : "ExtZipkinSvcTargetGrp",
+            "Properties" : {
+                "LoadBalancerArn" : { 
+                        "Fn::ImportValue" :  {
+                            "Fn::Sub": "FinexExternalAlbArn" 
+                        } 
+                    },
+                "DefaultActions" : [ {
+                    "ForwardConfig" : {
+                        "TargetGroups" : [ {
+                            "TargetGroupArn" : { 
+                                "Ref" : "ExtZipkinSvcTargetGrp"                            
+                            }
+                        } ]
+                    },
+                    "Type" : "forward"
+                } ],
+                "Port" : 80,
+                "Protocol" : "TCP"
+            }
+        }
+    }
+}
