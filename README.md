@@ -414,6 +414,21 @@ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazon
 ```
 5. Load the `finexschema.sql` file into pgcli which will automatically run all DDL commands.
 
+```postgres
+[ec2-user@ip-xxx-xxx-xxx-xxx ~]$ pgcli postgres://username:password@finex-database.xxxxxxxxx.us-east-2.rds.amazonaws.com/finex
+Server: PostgreSQL 12.4
+Version: 3.0.0
+Chat: https://gitter.im/dbcli/pgcli
+Home: http://pgcli.com
+finex> \i finexschema.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+Time: 0.050s
+finex>
+```
+
 #### Create TLS Artifacts
 
 Refer to the [Application Security](#application-security) section for TLS security architecture.
