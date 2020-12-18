@@ -78,6 +78,10 @@ function get_acm_certificate_arn() {
     fi
 }
 
+# Create cloudwatch log group
+aws logs create-log-group --log-group-name finex-logs
+aws logs put-retention-policy --log-group-name finex-logs --retention-in-days 1
+
 # Deploy the finex-nat-gateway so that all services in the private subnet
 # have internet access to install docker and other packages
 STACK_NAME="finex-nat-gateway-$FINEX_AWS_REGION-zone1"

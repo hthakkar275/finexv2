@@ -2,7 +2,7 @@
 
 A financial exchange system used to experiment with software architecture styles. The system employs a distributed microservices architecture with deployment on AWS. The service mesh implementation and the deployment architecture on AWS is intended to evolve as different architectural styles are employed. The following is the history of that evolution. 
 
-*  [Version 1](https://github.com/hthakkar275/finexv1)
+*  [Version 1](https://github.com/hthakkar275/finexv2)
    *  Synchronous RESTful web services for internal and external API
    *  Service mesh implementation with AWS internal Application Load Balancer
       * AWS internal load balancer configured with path-based routes to the internal APIs offered by services
@@ -30,6 +30,10 @@ A financial exchange system used to experiment with software architecture styles
 
 [Version 2.2](https://github.com/hthakkar275/finexv2)
    *  Distributed tracing using Spring Sleuth, Apache Kafka, Cassandra and Zipkin
+
+[Version 2.3](https://github.com/hthakkar275/finexv2)
+   *  Centralized logging to AWS CloudWatch Logs
+      *  Direct all docker container logs to AWS CloudWatch log group via the awslogs log driver
 
 The stock exchange system is a trading exchange system is a distributed system with set of services that 
    * Accepts buy & sell orders from brokers 
@@ -66,7 +70,7 @@ The financial exchange employs a microservices architecture with independent ser
 1. Application Services
 2. Infrastructure Services
 
-The application services implement the business logic of the financial exchange while the infrastructure services support the distributed environment under which the application services run and collaborate with one another.
+The application services implement the business logic of the financial exchange while the infrastructure services support the distributed environment under which the application services run and collaborate with one another. All infrastructre and application services running inside a docker container have their application logs directed to the AWS CloudWatch Logs via log driver `awslogs`. Refer to [Centralized Logging](#centralized-logging) for more details.
 
 ![Services](financial-exchange-docs/AllServices.png) 
 
@@ -83,7 +87,7 @@ Refer to the Finex Complete Picture diagram above for reference. The infrastruct
 
 ### Configuration Service
 
-[Configuration Service](financial-exchange-config/) is a Java Spring Boot application that is also a Spring Cloud Config Server. It contains no dedicated application code. Instead it relies entirely on the the out-of-the-box Spring Cloud Config Server implementation. It uses a git repository as the source of configuration files to serve to the application services. The git repository information such as git URI and git credentials are supplied to the docker build process for the configuration service. As such the git configuration repository details are pre-packaged into the docker image and ready to run when the image is run in a docker container. The excerpt from the [Configuration Service Dockerfile](financial-exchange-config/dockerfile.configserver) show how the git details are passed into the docker build which are then exported as environment variable in the docker image.
+[Configuration Service](financial-exchange-config/) is a Java Spring Boot application that is also a Spring Cloud Config Server. It contains no dedicated application code. Instead it relies entirely on the the out-of-the-box Spring Cloud Config Server implementation. It uses a git repository as the source of configuration files to serve to the application services. The git repository information such as git URI and git credentials are supplied to the docker build process for the configuration service. As such the git configuration repository details are pre-packaged into the docker image and ready to run when the image is run in a docker container. The excerpt from the [Configuration Service Dockerfile](financial-exchange-config/dockerfile.config) show how the git details are passed into the docker build which are then exported as environment variable in the docker image.
 
 ```Dockerfile
 ARG GIT_URI_ARG
@@ -145,23 +149,23 @@ One or more configuration services can be deployed behind an internal load balan
 * Retrieves the deployment-specific configuration properties from the Configuration Service
 * Registers with the Discovery Service to allow Application Services to discover the API Gateway Service  as the API Gateway Service
 * Routes API invocations amongst the Application Services
-* Produces execution traces at the service entry/exit boundary using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](###kafka-service) for consumption by [Zipkin Service](###zipkin-service)
+* Produces execution traces at the service entry/exit boundary using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](#kafka-service) for consumption by [Zipkin Service](#zipkin-service)
 
 ### Kafka Service
 
-Kafka Service is a set of two [Apache Kafka](https://kafka.apache.org) brokers. The two brokers are hosted on two different EC2 instances in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Kafka Service is used primarily as asynchornous communication medium between [Application Services](##application-services) and [Zipkin Service](##zipkin-service). The [Application Services](##application-services) capture execution entry and exit points at the service boundaries and send those information as exectuion trace data points to Kafka Service which are then consumed by [Zipkin Service](##zipkin-service).
+Kafka Service is a set of two [Apache Kafka](https://kafka.apache.org) brokers. The two brokers are hosted on two different EC2 instances in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Kafka Service is used primarily as asynchornous communication medium between [Application Services](#application-services) and [Zipkin Service](#zipkin-service). The [Application Services](#application-services) capture execution entry and exit points at the service boundaries and send those information as exectuion trace data points to Kafka Service which are then consumed by [Zipkin Service](#zipkin-service).
 
-Though it is curently used only for purpose of streaming execution trace messages from [Application Services](##application-services) to [Zipkin Service](##zipkin-service), the Kafka Service can be used for any general event-based communication. Future versions of Finex will have an option of event-based architecture where the [Application Services](##application-services) communicate with one another via asynchronous events as opposed to the current synchronous HTTP communication. The Kafka Service will be the event distribution platform in that event-based architecture. 
+Though it is curently used only for purpose of streaming execution trace messages from [Application Services](#application-services) to [Zipkin Service](#zipkin-service), the Kafka Service can be used for any general event-based communication. Future versions of Finex will have an option of event-based architecture where the [Application Services](#application-services) communicate with one another via asynchronous events as opposed to the current synchronous HTTP communication. The Kafka Service will be the event distribution platform in that event-based architecture. 
 
 There are also a pair of Apache Zookeeper hostsed on two different dedicated EC2 instances. The Apache Zookeeper is a required component to manage a cluster of multiple Kafka brokers. Refer to [Apache Kafka](https://kafka.apache.org) docuemntation for more information. Finex systems itself does not use the Apache Zookeper directly. 
 
 ### Cassandra Service
 
-Cassandar Service is a pair of EC2 instances hosting the [Apache Cassandra](https://cassandra.apache.org) NoSQL database. The EC2 instances are deployed in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Cassandra Service is used primarily by [Zipkin Service](##zipkin-service) to store distributed tracing data. However, it is a general-purpose NoSQL database which may be employable for other purposes. 
+Cassandar Service is a pair of EC2 instances hosting the [Apache Cassandra](https://cassandra.apache.org) NoSQL database. The EC2 instances are deployed in two different AWS availability zones for fault tolerance and high availability purposes. Currently the Cassandra Service is used primarily by [Zipkin Service](#zipkin-service) to store distributed tracing data. However, it is a general-purpose NoSQL database which may be employable for other purposes. 
 
 ### Zipkin Service
 
-Zipkin Service is a single EC2 instance hosting the [Zipkin](https://zipkin.io) distributed tracing application. The applicaiton is run using the standard Zipkin docker image from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing it to the [Kafka Service](##kafka-service) for consumption of execution traces produced by the [Application Services](##application-services). Furthermore, the configuration points to [Cassandra Service](##cassandra-service) to persist the traces. The UI dashboard is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. Refer to [Distributed Tracing](#distributed-tracing) for more details.
+Zipkin Service is a single EC2 instance hosting the [Zipkin](https://zipkin.io) distributed tracing application. The applicaiton is run using the standard Zipkin docker image from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing it to the [Kafka Service](#kafka-service) for consumption of execution traces produced by the [Application Services](#application-services). Furthermore, the configuration points to [Cassandra Service](#cassandra-service) to persist the traces. The UI dashboard is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. Refer to [Distributed Tracing](#distributed-tracing) for more details.
 
 ## Application Services
 
@@ -175,7 +179,7 @@ Each service is:
 * Retrieves the deployment-specific configuration properties from the Configuration Service
 * Registers with the Discovery Service to allow discovery by API Gateway Service
 * Communicates with other Application Services via the API Gateway Service
-* Produces execution traces at the service entry/exit boundaries using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](###kafka-service) for consumption by [Zipkin Service](###zipkin-service)
+* Produces execution traces at the service entry/exit boundaries using Spring Sleuth. The traces are asynchronously sent to [Kafka Service](#kafka-service) for consumption by [Zipkin Service](#zipkin-service)
 
 The table below identifies the location of the source code for each service within this repository.
 
@@ -558,14 +562,14 @@ The automated AWS deployment automatically perform the following steps to use th
 
 Distributed tracing is an essential tool in distributed service-oriented architecture. The Finex system employs [Zipkin](https://zipkin.io) for distribued tracing. The Finex distributed tracing feature has following components.
 
-1. [Application Services](##application-services) - Producers of execution trace events
-2. [Zipkin Service](###zipkin-service) - Consumes execution trace events, manages execution trace events, and provides dashboard to view end-to-end execution traces
-3. [Kafka Service](###kafka-service) - Stream execution trace events from producers to consumer
-4. [Cassandra Service](##cassandra-service) - Persist execcution trace events
+1. [Application Services](#application-services) - Producers of execution trace events
+2. [Zipkin Service](#zipkin-service) - Consumes execution trace events, manages execution trace events, and provides dashboard to view end-to-end execution traces
+3. [Kafka Service](#kafka-service) - Stream execution trace events from producers to consumer
+4. [Cassandra Service](#cassandra-service) - Persist execcution trace events
 
 ![Distributed Tracing Logial Architecture](financial-exchange-docs/LogicalDistributedTracingArchitecture.png) 
 
-[Application Services](##application-services) incorporate Spring Sleuth (shownn in pom dependency below) which automatically intercepts incoming and outgoing HTTP/HTTPS requests and manages trace id values in HTTP headers of requests. 
+[Application Services](#application-services) incorporate Spring Sleuth (shownn in pom dependency below) which automatically intercepts incoming and outgoing HTTP/HTTPS requests and manages trace id values in HTTP headers of requests. 
 
 ```console		
 <dependency>
@@ -577,30 +581,39 @@ Distributed tracing is an essential tool in distributed service-oriented archite
 	<artifactId>spring-kafka</artifactId>
 </dependency>
 ```
-The trace id values are used to track a request as it traverses one more more services in the distributed Finex system. Each Application Service incorporates Kafka dependency (shown in pom dependency above) to allow the service to become a Kafka producer. Application Services sends execution trace event messges to a Kafka topic named `zipkin` hosted on [Kafak Service](###kafka-service). 
+The trace id values are used to track a request as it traverses one more more services in the distributed Finex system. Each Application Service incorporates Kafka dependency (shown in pom dependency above) to allow the service to become a Kafka producer. Application Services sends execution trace event messges to a Kafka topic named `zipkin` hosted on [Kafak Service](#kafka-service). 
 
 ![Distributed Tracing AWS Architecture](financial-exchange-docs/PhysicalAWSDistributedTracingArchitecture.png) 
 
-A topic named `zipkin` exists on [Kafak Service](###kafka-service) to stream execution trace events from the producers to the consumers. The Finex [Kafak Service](###kafka-service) is not the AWS Managed Kafka Service, but rather it is a set of two Kafka brokers and two Zookeper nodes hosted on dedicated EC2 instances. As the figure above shows, the Kafka brokers and Zookeeper nodes are deployed in two different AWS Availability Zones to promote fault tolerance and high availability. The topic `zipkin` has the following characteristics
+A topic named `zipkin` exists on [Kafak Service](#kafka-service) to stream execution trace events from the producers to the consumers. The Finex [Kafak Service](#kafka-service) is not the AWS Managed Kafka Service, but rather it is a set of two Kafka brokers and two Zookeper nodes hosted on dedicated EC2 instances. As the figure above shows, the Kafka brokers and Zookeeper nodes are deployed in two different AWS Availability Zones to promote fault tolerance and high availability. The topic `zipkin` has the following characteristics
 
 * Partion Count = 1
 * Replication Factor = 1
 
-[Zipkin Service](###zipkin-service) consumes the execution trace events from Kafka topic `zipkin`, and persists the events in [Cassandra Service](##cassandra-service). When a user navigates to the Zipkin dashboard UI, [Zipkin Service](###zipkin-service) retreives the trace events from [Cassandra Service](##cassandra-service) based on the user query.
+[Zipkin Service](#zipkin-service) consumes the execution trace events from Kafka topic `zipkin`, and persists the events in [Cassandra Service](#cassandra-service). When a user navigates to the Zipkin dashboard UI, [Zipkin Service](#zipkin-service) retreives the trace events from [Cassandra Service](#cassandra-service) based on the user query.
 
-[Zipkin Service](###zipkin-service) is a single EC2 instance hosting the [Zipkin](https://zipkin.io) application. The applicaiton is run using the standard Zipkin docker image `openzipkin/zipkin` from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing to the [Kafka Service](##kafka-service) for consumption of execution traces and to [Cassandra Service](##cassandra-service) to persist the traces. The [Zipkin Service](###zipkin-service) manages the creation of appropriate necessary Cassandra schemas. The Zipkin UI dashboard, as shown in an example scren capture below, is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. 
+[Zipkin Service](#zipkin-service) is a single EC2 instance hosting the [Zipkin](https://zipkin.io) application. The applicaiton is run using the standard Zipkin docker image `openzipkin/zipkin` from docker hub. The docker image has trace collector, trace persistence and UI dashboard. The docker image is run inside a docker container with configuration pointing to the [Kafka Service](#kafka-service) for consumption of execution traces and to [Cassandra Service](#cassandra-service) to persist the traces. The [Zipkin Service](#zipkin-service) manages the creation of appropriate necessary Cassandra schemas. The Zipkin UI dashboard, as shown in an example scren capture below, is available through the internet-facing load balancer over HTTP following the URL format http://host/zipkin. 
 
 ![Zipkin Dashboard](financial-exchange-docs/ZipkinDashboard.png) 
+
+# Centralized Logging
+
+Just as with distributed tracing, centralized logging is also an essential tool in distributed service-oriented architecture. The Finex system employs log groups in AWS CloudWatch Logs for centralized logging. The use of AWS CloudWatch Logs is very simple and straightforward with very little additonal configurations. Refer to [Docker Documentation - Amazon CloudWatch Logs Logging Driver](https://docs.docker.com/config/containers/logging/awslogs) for general information on docker logging to AWS CloudWatch. All EC2 hosts that run docker container have the awslogs package installed (`yum install awslogs -y`) as part of their automated CloudFormation script. All docker containers are configured to direct the logs to the `awslogs` log driver. Additionally the `docker run` command consists of log options, as shown below, to have the logs directed to specific region and fixed CloudWatch log group named `finex-logs`. The log options also specifies the log stream name, which is set to the name of the EC2 instance. Below is an example of docker logs configuration for product service. Specifying the log driver and log options in the `docker run` commands removes the need for docker daemon configuration setup.
+
+```console
+--log-driver=awslogs --log-opt awslogs-group=finex-logs --log-opt awslogs-region=" { "Ref" : "AWS::Region" } --log-opt awslogs-stream=FinexOrderSvcZone1
+```
 
 # Future Directions
 
 This is just one of the many possible choice of architecture employing microservices. The objective is to explore other architecture styles and compare the benefits and drawbacks. Additionally there are certain aspects in the feature set of finex application itself that can be enhanced or improved. That said the following is a rough prioritized backlog of epics to address in the future.
 
 1. Centralized log
-2. Use Istio service mesh which would be an alternative to Spring Zuul and the Spring Cloud Configuration Server
-3. Event-drive architecture for inter-service communication. This would be yet another alternative or a supplement to Spring Zuul or Istio
-4. Provide push notifications to clients for trades
-5. Authentication & authorization of finex API
-5. API improvement
-6. Use of of CI/CD tools such as Jenkins 
-7. Performance analysis & improvement
+2. Implement AWS EKS (Elastick Kubernetes Service)
+3. Use Istio service mesh which would be an alternative to Spring Zuul and the Spring Cloud Configuration Server
+4. Event-drive architecture for inter-service communication. This would be yet another alternative or a supplement to Spring Zuul or Istio
+5. Provide push notifications to clients for trades
+6. Authentication & authorization of finex API
+7. API improvement
+8. Use of of CI/CD tools such as Jenkins 
+9. Performance analysis & improvement

@@ -74,6 +74,7 @@
                             [
                                 "#!/bin/bash -ex", "\n",
                                 "yum update -y", "\n",
+                                "yum install awslogs -y", "\n",
                                 "yum install docker -y", "\n",
                                 "systemctl start docker", "\n",
                                 "systemctl enable docker", "\n",
