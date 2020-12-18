@@ -27,6 +27,7 @@ function delete_business_services_stacks() {
         echo "Deleting application, api gateway, discover and config services stacks ..."
         sleep 30
     done
+    aws logs delete-log-group --log-group-name finex-logs
     echo "Exiting delete_business_services_stacks"
 }
 
@@ -55,7 +56,7 @@ function delete_infra_services_stacks() {
         aws cloudformation delete-stack --stack-name $ESTACK
     done
 
-    for i in {1..10}; do
+    for i in {1..20}; do
         echo "Deleting load balancers and nat gateway stacks ..."
         sleep 30
     done

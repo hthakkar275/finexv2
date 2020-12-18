@@ -82,6 +82,7 @@
                             [
                                 "#!/bin/bash -ex", "\n",
                                 "yum update -y", "\n",
+                                "yum install awslogs -y", "\n",
                                 "yum install docker -y", "\n",
                                 "systemctl start docker", "\n",
                                 "systemctl enable docker", "\n",
@@ -105,6 +106,9 @@
                                 "chmod 600 ~ec2-user/finex-security/internal-ca.crt", "\n",
                                 "echo \"#!/bin/bash\" >>  ~ec2-user/run-apigateway-svc.sh", "\n",
                                 "echo \"docker run -d -v /home/ec2-user/finex-security:/finex-security -p 443:8443 ",
+                                "--log-driver=awslogs --log-opt awslogs-group=finex-logs ",
+                                "--log-opt awslogs-region=", { "Ref" : "AWS::Region" }, " ",
+                                "--log-opt awslogs-stream=FinexApiGatewaySvcZone1 ",
                                 "-e TLS_KEYSTORE=/finex-security/keystore.p12 ",
                                 "-e TLS_KEYSTORE_PASSWORD=`cat  /home/ec2-user/finex-security/keystore-pass.txt` ",
                                 "-e spring_profiles=aws ",
